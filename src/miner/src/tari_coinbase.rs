@@ -1,25 +1,24 @@
 use rand::rngs::OsRng;
-use tari_common_types::tari_address::TariAddress;
-use tari_common_types::types::PublicKey;
-use tari_core::consensus::ConsensusConstants;
-use tari_core::one_sided::diffie_hellman_stealth_domain_hasher;
-use tari_core::one_sided::shared_secret_to_output_encryption_key;
-use tari_core::one_sided::shared_secret_to_output_spending_key;
-use tari_core::one_sided::stealth_address_script_spending_key;
-use tari_core::transactions::key_manager::TransactionKeyManagerBranch;
-use tari_core::transactions::key_manager::TransactionKeyManagerInterface;
-use tari_core::transactions::key_manager::{MemoryDbKeyManager, TariKeyId};
-use tari_core::transactions::tari_amount::MicroMinotari;
-use tari_core::transactions::transaction_components::WalletOutput;
-use tari_core::transactions::transaction_components::{
-    RangeProofType, Transaction, TransactionKernel, TransactionOutput,
+use tari_common_types::{tari_address::TariAddress, types::PublicKey};
+use tari_core::{
+    consensus::ConsensusConstants,
+    one_sided::{
+        diffie_hellman_stealth_domain_hasher,
+        shared_secret_to_output_encryption_key,
+        shared_secret_to_output_spending_key,
+        stealth_address_script_spending_key,
+    },
+    transactions::{
+        key_manager::{MemoryDbKeyManager, TariKeyId, TransactionKeyManagerBranch, TransactionKeyManagerInterface},
+        tari_amount::MicroMinotari,
+        transaction_components::{RangeProofType, Transaction, TransactionKernel, TransactionOutput, WalletOutput},
+        CoinbaseBuildError,
+        CoinbaseBuilder,
+    },
 };
-use tari_core::transactions::CoinbaseBuildError;
-use tari_core::transactions::CoinbaseBuilder;
 use tari_crypto::keys::PublicKey as PK;
 use tari_key_manager::key_manager_service::KeyManagerInterface;
-use tari_script::one_sided_payment_script;
-use tari_script::stealth_payment_script;
+use tari_script::{one_sided_payment_script, stealth_payment_script};
 
 pub async fn generate_coinbase(
     fee: MicroMinotari,
@@ -60,23 +59,12 @@ pub async fn generate_coinbase_with_wallet_output(
     stealth_payment: bool,
     consensus_constants: &ConsensusConstants,
     range_proof_type: RangeProofType,
-) -> Result<
-    (
-        Transaction,
-        TransactionOutput,
-        TransactionKernel,
-        WalletOutput,
-    ),
-    CoinbaseBuildError,
-> {
+) -> Result<(Transaction, TransactionOutput, TransactionKernel, WalletOutput), CoinbaseBuildError> {
     let (sender_offset_key_id, _) = key_manager
         .get_next_key(TransactionKeyManagerBranch::SenderOffset.get_branch_key())
         .await?;
     let shared_secret = key_manager
-        .get_diffie_hellman_shared_secret(
-            &sender_offset_key_id,
-            wallet_payment_address.public_key(),
-        )
+        .get_diffie_hellman_shared_secret(&sender_offset_key_id, wallet_payment_address.public_key())
         .await?;
     let spending_key = shared_secret_to_output_spending_key(&shared_secret)?;
 
@@ -87,12 +75,8 @@ pub async fn generate_coinbase_with_wallet_output(
 
     let script = if stealth_payment {
         let (nonce_private_key, nonce_public_key) = PublicKey::random_keypair(&mut OsRng);
-        let c = diffie_hellman_stealth_domain_hasher(
-            &nonce_private_key,
-            wallet_payment_address.public_key(),
-        );
-        let script_spending_key =
-            stealth_address_script_spending_key(&c, wallet_payment_address.public_key());
+        let c = diffie_hellman_stealth_domain_hasher(&nonce_private_key, wallet_payment_address.public_key());
+        let script_spending_key = stealth_address_script_spending_key(&c, wallet_payment_address.public_key());
         stealth_payment_script(&nonce_public_key, &script_spending_key)
     } else {
         one_sided_payment_script(wallet_payment_address.public_key())
@@ -115,21 +99,12 @@ pub async fn generate_coinbase_with_wallet_output(
         .body()
         .outputs()
         .first()
-        .ok_or(CoinbaseBuildError::BuildError(
-            "No output found".to_string(),
-        ))?;
+        .ok_or(CoinbaseBuildError::BuildError("No output found".to_string()))?;
     let kernel = transaction
         .body()
         .kernels()
         .first()
-        .ok_or(CoinbaseBuildError::BuildError(
-            "No kernel found".to_string(),
-        ))?;
+        .ok_or(CoinbaseBuildError::BuildError("No kernel found".to_string()))?;
 
-    Ok((
-        transaction.clone(),
-        output.clone(),
-        kernel.clone(),
-        wallet_output,
-    ))
+    Ok((transaction.clone(), output.clone(), kernel.clone(), wallet_output))
 }

@@ -1,5 +1,6 @@
-use anyhow;
 use std::{fs::File, io::BufReader, path::PathBuf};
+
+use anyhow;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub(crate) struct ConfigFile {
@@ -12,8 +13,7 @@ pub(crate) struct ConfigFile {
 impl Default for ConfigFile {
     fn default() -> Self {
         Self {
-            tari_address: "8c98d40f216589d8b385015222b95fb5327fee334352c7c30370101b0c6d124fd6"
-                .to_string(),
+            tari_address: "8c98d40f216589d8b385015222b95fb5327fee334352c7c30370101b0c6d124fd6".to_string(),
             tari_node_url: "http://127.0.0.1:18142".to_string(),
             coinbase_extra: "tari_gpu_miner".to_string(),
             template_refresh_secs: 30,

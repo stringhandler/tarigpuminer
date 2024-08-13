@@ -28,4 +28,9 @@ prost-types = "0.11.9"
 rand = "0.8"
 libsqlite3-sys = { version = "0.25.1", features = ["bundled"] }
 
-cust = "0.3.2"
+cust = {  version ="0.3.2", optional=true }
+opencl3 = { version="0.9.5", optional=true}
+
+[features]
+default = []
+nvidia = ["cust"]

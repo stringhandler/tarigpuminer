@@ -1,10 +1,14 @@
-use minotari_app_grpc::tari_rpc::AggregateBody;
-use minotari_app_grpc::tari_rpc::Block;
-use minotari_app_grpc::tari_rpc::GetNewBlockResult;
-use minotari_app_grpc::tari_rpc::NewBlockTemplate;
 use minotari_app_grpc::tari_rpc::{
-    base_node_client::BaseNodeClient, pow_algo::PowAlgos, Empty, NewBlockTemplateRequest,
-    NewBlockTemplateResponse, PowAlgo,
+    base_node_client::BaseNodeClient,
+    pow_algo::PowAlgos,
+    AggregateBody,
+    Block,
+    Empty,
+    GetNewBlockResult,
+    NewBlockTemplate,
+    NewBlockTemplateRequest,
+    NewBlockTemplateResponse,
+    PowAlgo,
 };
 use tari_core::validation::aggregate_body;
 use tonic::async_trait;
@@ -26,10 +30,7 @@ impl BaseNodeClientWrapper {
 #[async_trait]
 impl NodeClient for BaseNodeClientWrapper {
     async fn get_version(&mut self) -> Result<u64, anyhow::Error> {
-        let res = self
-            .client
-            .get_version(tonic::Request::new(Empty {}))
-            .await?;
+        let res = self.client.get_version(tonic::Request::new(Empty {})).await?;
         // dbg!(res);
         Ok(0)
     }
@@ -49,14 +50,8 @@ impl NodeClient for BaseNodeClientWrapper {
         Ok(res.into_inner())
     }
 
-    async fn get_new_block(
-        &mut self,
-        template: NewBlockTemplate,
-    ) -> Result<GetNewBlockResult, anyhow::Error> {
-        let res = self
-            .client
-            .get_new_block(tonic::Request::new(template))
-            .await?;
+    async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<GetNewBlockResult, anyhow::Error> {
+        let res = self.client.get_new_block(tonic::Request::new(template)).await?;
         Ok(res.into_inner())
     }
 
@@ -74,10 +69,7 @@ pub trait NodeClient {
 
     async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, anyhow::Error>;
 
-    async fn get_new_block(
-        &mut self,
-        template: NewBlockTemplate,
-    ) -> Result<GetNewBlockResult, anyhow::Error>;
+    async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<GetNewBlockResult, anyhow::Error>;
 
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error>;
 }
@@ -109,10 +101,7 @@ impl Client {
         }
     }
 
-    pub async fn get_new_block(
-        &mut self,
-        template: NewBlockTemplate,
-    ) -> Result<GetNewBlockResult, anyhow::Error> {
+    pub async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<GetNewBlockResult, anyhow::Error> {
         match self {
             Client::BaseNode(client) => client.get_new_block(template).await,
             Client::Benchmark(client) => client.get_new_block(template).await,
@@ -139,10 +128,7 @@ impl NodeClient for BenchmarkNodeClient {
         todo!()
     }
 
-    async fn get_new_block(
-        &mut self,
-        template: NewBlockTemplate,
-    ) -> Result<GetNewBlockResult, anyhow::Error> {
+    async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<GetNewBlockResult, anyhow::Error> {
         todo!()
     }
 
