@@ -48,7 +48,7 @@ impl<TEngineImpl: EngineImpl> GpuEngine<TEngineImpl>{
         // }
     }
 
-    pub fn mine(&self) -> Result<(), anyhow::Error> {
+    pub fn mine(&self) -> Result<(Option<u64>, u32, i32), anyhow::Error> {
         self.inner.mine()
     }
 }

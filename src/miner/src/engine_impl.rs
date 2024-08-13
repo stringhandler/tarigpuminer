@@ -13,5 +13,5 @@ pub trait EngineImpl {
 
     fn create_main_function(&self) -> Result<Self::Function, anyhow::Error>;
 
-    fn mine(&self) -> Result<(), anyhow::Error>;
+    fn mine(&self) -> Result<(Option<u64>, u32, i32), anyhow::Error>;
 }

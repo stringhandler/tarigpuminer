@@ -102,8 +102,9 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     let mut threads = vec![];
     for i in 0..num_devices {
         let c = config.clone();
+        let gpu = gpu_engine.clone();
         threads.push(thread::spawn(move || {
-            run_thread(gpu_engine.clone(), num_devices as u64, i as u64, c, benchmark)
+            run_thread(gpu, num_devices as u64, i as u64, c, benchmark)
         }));
     }
 
@@ -134,10 +135,10 @@ fn run_thread<T: EngineImpl>(gpu_engine: GpuEngine<T>, num_threads: u64, thread_
     // let (grid_size, block_size) = (23, 50);
 
     let output = vec![0u64; 5];
-    let mut output_buf = output.as_slice().as_dbuf()?;
+    //let mut output_buf = output.as_slice().as_dbuf()?;
 
     let mut data = vec![0u64; 6];
-    let mut data_buf = data.as_slice().as_dbuf()?;
+    //let mut data_buf = data.as_slice().as_dbuf()?;
 
     loop {
         rounds += 1;
@@ -156,8 +157,8 @@ fn run_thread<T: EngineImpl>(gpu_engine: GpuEngine<T>, num_threads: u64, thread_
         data[3] = hash64[2];
         data[4] = hash64[3];
         data[5] = u64::from_le_bytes([1, 0x06, 0, 0, 0, 0, 0, 0]);
-        data_buf.copy_from(&data).expect("Could not copy data to buffer");
-        output_buf.copy_from(&output).expect("Could not copy output to buffer");
+       // data_buf.copy_from(&data).expect("Could not copy data to buffer");
+       // output_buf.copy_from(&output).expect("Could not copy output to buffer");
 
         let mut nonce_start = (u64::MAX / num_threads) * thread_index;
         let mut last_hash_rate = 0;
@@ -169,18 +170,18 @@ fn run_thread<T: EngineImpl>(gpu_engine: GpuEngine<T>, num_threads: u64, thread_
                 break;
             }
             let (nonce, hashes, diff) = gpu_engine.mine(
-                mining_hash,
-                header.pow.to_bytes(),
-                (u64::MAX / (target_difficulty)).to_le(),
-                nonce_start,
-                &context,
-                &module,
-                4,
-                &func,
-                block_size,
-                grid_size,
-                data_buf.as_device_ptr(),
-                &output_buf,
+                // mining_hash,
+                // header.pow.to_bytes(),
+                // (u64::MAX / (target_difficulty)).to_le(),
+                // nonce_start,
+                // &context,
+                // &module,
+                // 4,
+                // &func,
+                // block_size,
+                // grid_size,
+                // data_buf.as_device_ptr(),
+                // &output_buf,
             )?;
             if let Some(ref n) = nonce {
                 header.nonce = *n;
