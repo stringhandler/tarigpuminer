@@ -12,6 +12,7 @@ use cust::{
 use minotari_app_grpc::tari_rpc::{BlockHeader as grpc_header, TransactionOutput as GrpcTransactionOutput};
 use num_format::{Locale, ToFormattedString};
 use sha3::{digest::crypto_common::rand_core::block, Digest, Sha3_256};
+use std::str::FromStr;
 use tari_common::configuration::Network;
 use tari_common_types::{tari_address::TariAddress, types::FixedHash};
 use tari_core::{
@@ -19,13 +20,10 @@ use tari_core::{
     consensus::ConsensusManager,
     proof_of_work::{sha3x_difficulty, Difficulty},
     transactions::{
-        key_manager::create_memory_db_key_manager,
-        tari_amount::MicroMinotari,
-        transaction_components::RangeProofType,
+        key_manager::create_memory_db_key_manager, tari_amount::MicroMinotari, transaction_components::RangeProofType,
     },
 };
 use tari_utilities::epoch_time::EpochTime;
-use std::str::FromStr;
 use tokio::{
     runtime::{Handle, Runtime},
     sync::RwLock,
@@ -36,13 +34,8 @@ use tokio::{
 };
 
 use crate::{
-    config_file::ConfigFile,
-    engine_impl::EngineImpl,
-    function_impl::FunctionImpl,
-    gpu_engine::GpuEngine,
-    node_client::NodeClient,
-    opencl_engine::OpenClEngine,
-    tari_coinbase::generate_coinbase,
+    config_file::ConfigFile, engine_impl::EngineImpl, function_impl::FunctionImpl, gpu_engine::GpuEngine,
+    node_client::NodeClient, opencl_engine::OpenClEngine, tari_coinbase::generate_coinbase,
 };
 
 mod config_file;
@@ -183,7 +176,7 @@ fn run_thread<T: EngineImpl>(
                 &gpu_function,
                 &context,
                 &data,
-                (u64::MAX / (target_difficulty / 1000)).to_le(),
+                (u64::MAX / (target_difficulty)).to_le(),
                 nonce_start,
                 num_iterations,
                 block_size,
@@ -253,7 +246,9 @@ async fn get_template(
         ));
     }
     let address = if round % 99 == 0 {
-        TariAddress::from_str("f2CWXg4GRNXweuDknxLATNjeX8GyJyQp9GbVG8f81q63hC7eLJ4ZR8cDd9HBcVTjzoHYUtzWZFM3yrZ68btM2wiY7sj")?
+        TariAddress::from_str(
+            "f2CWXg4GRNXweuDknxLATNjeX8GyJyQp9GbVG8f81q63hC7eLJ4ZR8cDd9HBcVTjzoHYUtzWZFM3yrZ68btM2wiY7sj",
+        )?
     } else {
         TariAddress::from_str(config.tari_address.as_str())?
     };
@@ -295,7 +290,7 @@ async fn get_template(
         .try_into()
         .map_err(|s: String| anyhow!(s))?;
     // header.timestamp = EpochTime::now();
-    
+
     let mining_hash = header.mining_hash().clone();
     Ok((target_difficulty, block, header, mining_hash))
 }

@@ -93,7 +93,7 @@ impl EngineImpl for OpenClEngine {
         nonce_start: u64,
         num_iterations: u32,
         block_size: u32,
-        grid_size: u32
+        grid_size: u32,
     ) -> Result<(Option<u64>, u32, u64), Error> {
         // TODO: put in multiple threads
 
@@ -110,12 +110,17 @@ impl EngineImpl for OpenClEngine {
 
             let batch_size = 1 << 19; // According to tests, but we can try work this out
             let global_dimensions = [batch_size as usize];
-           // dbg!("here");
-            let mut buffer = Buffer::<cl_ulong>::create(&context.context, CL_MEM_READ_ONLY, data.len(), ptr::null_mut())?;
+            let max_workgroups = Device::new(context.context.devices()[0]).max_work_group_size().unwrap();
+            // dbg!(max_compute);
+            // let max_work_items = queue.max_work_item_dimensions();
+            // dbg!(max_work_items);
+            // dbg!("here");
+            let mut buffer =
+                Buffer::<cl_ulong>::create(&context.context, CL_MEM_READ_ONLY, data.len(), ptr::null_mut())?;
             queue.enqueue_write_buffer(&mut buffer, CL_TRUE, 0, data, &[])?;
             let output_buffer = Buffer::<cl_ulong>::create(&context.context, CL_MEM_WRITE_ONLY, 2, ptr::null_mut())?;
-           // dbg!(block_size);
-           // dbg!(grid_size);
+            // dbg!(block_size);
+            // dbg!(grid_size);
             for kernel in kernels {
                 ExecuteKernel::new(&kernel)
             .set_arg(&buffer)
@@ -123,7 +128,9 @@ impl EngineImpl for OpenClEngine {
             .set_arg(&min_difficulty)
             .set_arg(&num_iterations)
             .set_arg(&output_buffer)
-            .set_global_work_size((block_size * grid_size) as usize)
+            
+            .set_global_work_size((grid_size * block_size) as usize)
+            // .set_local_work_size(max_workgroups)
             // .set_wait_event(&y_write_event)
             .enqueue_nd_range(&queue).expect("culd not queue");
 
@@ -135,12 +142,16 @@ impl EngineImpl for OpenClEngine {
             let mut output = vec![0u64, 0u64];
             queue.enqueue_read_buffer(&output_buffer, CL_TRUE, 0, output.as_mut_slice(), &[])?;
             if output[0] > 0 {
-            dbg!(&output);
-                return Ok((Some(output[0]), grid_size*block_size * num_iterations,  u64::MAX / output[1] ));
+                dbg!(&output);
+                return Ok((
+                    Some(output[0]),
+                    grid_size * block_size *  num_iterations,
+                    u64::MAX / output[1],
+                ));
             }
-            return Ok((None, grid_size*block_size * num_iterations, u64::MAX / output[1] ));
+            return Ok((None, grid_size *block_size *  num_iterations, u64::MAX / output[1]));
         }
-        Ok((None, grid_size*block_size * num_iterations, 0 ))
+        Ok((None, grid_size * block_size* num_iterations, 0))
     }
 }
 fn create_program_from_source(context: &Context) -> Option<Program> {
