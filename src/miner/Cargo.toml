@@ -5,15 +5,16 @@ edition = "2021"
 
 
 [dependencies]
-tari_core = { git = "https://github.com/tari-project/tari", tag = "v1.0.0-rc.6", default-features = false, features = [
+tari_core = { git = "https://github.com/tari-project/tari", tag = "v1.1.0-pre.2", default-features = false, features = [
     "transactions",
 ] }
-minotari_app_grpc = { git = "http://github.com/tari-project/tari", tag = "v1.0.0-rc.6" }
-tari_common_types = { git = "http://github.com/tari-project/tari", tag = "v1.0.0-rc.6" }
-tari_common = { git = "http://github.com/tari-project/tari", tag = "v1.0.0-rc.6" }
-tari_script = { git = "http://github.com/tari-project/tari", tag = "v1.0.0-rc.6" }
-tari_key_manager = { git = "http://github.com/tari-project/tari", tag = "v1.0.0-rc.6" }
-tari_crypto = { version = "0.20", features = ["borsh"] }
+minotari_app_grpc = { git = "http://github.com/tari-project/tari", tag = "v1.1.0-pre.2" }
+tari_common_types = { git = "http://github.com/tari-project/tari", tag = "v1.1.0-pre.2" }
+tari_common = { git = "http://github.com/tari-project/tari", tag = "v1.1.0-pre.2" }
+tari_script = { git = "http://github.com/tari-project/tari", tag = "v1.1.0-pre.2" }
+tari_key_manager = { git = "http://github.com/tari-project/tari", tag = "v1.1.0-pre.2" }
+tari_crypto = { version = "0.20.3", features = ["borsh"] }
+tari_utilities = "0.7"
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0.68"
 anyhow = "*"
@@ -30,6 +31,7 @@ libsqlite3-sys = { version = "0.25.1", features = ["bundled"] }
 
 cust = {  version ="0.3.2", optional=true }
 opencl3 = { version="0.9.5", optional=true}
+opencl-sys = "*"
 
 [features]
 default = []

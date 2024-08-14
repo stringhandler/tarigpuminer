@@ -1,24 +1,16 @@
-
-
 use crate::engine_impl::EngineImpl;
-
-
-
-
 
 #[derive(Clone)]
 pub struct GpuEngine<TEngineImpl: EngineImpl> {
-    inner: TEngineImpl
+    inner: TEngineImpl,
 }
 
-impl<TEngineImpl: EngineImpl> GpuEngine<TEngineImpl>{
-
+impl<TEngineImpl: EngineImpl> GpuEngine<TEngineImpl> {
     pub fn new(engine: TEngineImpl) -> Self {
-        GpuEngine {
-            inner: engine
-        }
+        GpuEngine { inner: engine }
     }
-    pub fn init(&self) -> Result<(), anyhow::Error>{
+
+    pub fn init(&mut self) -> Result<(), anyhow::Error> {
         self.inner.init()
     }
 
@@ -26,12 +18,12 @@ impl<TEngineImpl: EngineImpl> GpuEngine<TEngineImpl>{
         self.inner.num_devices()
     }
 
-    pub fn create_context(&self) -> Result<TEngineImpl::Context, anyhow::Error> {
-        self.inner.create_context()
+    pub fn create_context(&self, device_index: u32) -> Result<TEngineImpl::Context, anyhow::Error> {
+        self.inner.create_context(device_index)
     }
 
-    pub fn get_main_function(&self) -> Result<TEngineImpl::Function, anyhow::Error> {
-        self.inner.create_main_function()
+    pub fn get_main_function(&self, context: &TEngineImpl::Context) -> Result<TEngineImpl::Function, anyhow::Error> {
+        self.inner.create_main_function(context)
         // match self {
         //     GpuEngine::Cuda => {
         //         let module = Module::from_ptx(include_str!("../cuda/keccak.ptx"), &[
@@ -48,7 +40,26 @@ impl<TEngineImpl: EngineImpl> GpuEngine<TEngineImpl>{
         // }
     }
 
-    pub fn mine(&self) -> Result<(Option<u64>, u32, i32), anyhow::Error> {
-        self.inner.mine()
+    pub fn mine(
+        &self,
+        function: &TEngineImpl::Function,
+        context: &TEngineImpl::Context,
+        data: &[u64],
+        min_difficulty: u64,
+        nonce_start: u64,
+        num_iterations: u32,
+        block_size: u32,
+        grid_size: u32,
+    ) -> Result<(Option<u64>, u32, u64), anyhow::Error> {
+        self.inner.mine(
+            function,
+            context,
+            data,
+            min_difficulty,
+            nonce_start,
+            num_iterations,
+            block_size,
+            grid_size,
+        )
     }
 }

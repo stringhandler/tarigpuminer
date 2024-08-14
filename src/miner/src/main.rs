@@ -1,6 +1,4 @@
 use std::{cmp, convert::TryInto, env::current_dir, iter, num, path::PathBuf, sync::Arc, thread, time::Instant};
-use crate::engine_impl::EngineImpl;
-use crate::function_impl::FunctionImpl;
 
 use anyhow::{anyhow, Context as AnyContext};
 use clap::Parser;
@@ -11,8 +9,6 @@ use cust::{
     module::{ModuleJitOption, ModuleJitOption::DetermineTargetFromContext},
     prelude::{Module, *},
 };
-use crate::opencl_engine::OpenClEngine;
-
 use minotari_app_grpc::tari_rpc::{BlockHeader as grpc_header, TransactionOutput as GrpcTransactionOutput};
 use num_format::{Locale, ToFormattedString};
 use sha3::{digest::crypto_common::rand_core::block, Digest, Sha3_256};
@@ -28,6 +24,8 @@ use tari_core::{
         transaction_components::RangeProofType,
     },
 };
+use tari_utilities::epoch_time::EpochTime;
+use std::str::FromStr;
 use tokio::{
     runtime::{Handle, Runtime},
     sync::RwLock,
@@ -36,18 +34,25 @@ use tokio::{
     time::sleep,
     try_join,
 };
-use crate::gpu_engine::GpuEngine;
 
-use crate::{config_file::ConfigFile, node_client::NodeClient, tari_coinbase::generate_coinbase};
+use crate::{
+    config_file::ConfigFile,
+    engine_impl::EngineImpl,
+    function_impl::FunctionImpl,
+    gpu_engine::GpuEngine,
+    node_client::NodeClient,
+    opencl_engine::OpenClEngine,
+    tari_coinbase::generate_coinbase,
+};
 
 mod config_file;
-mod node_client;
-mod tari_coinbase;
-mod gpu_engine;
-mod opencl_engine;
-mod engine_impl;
 mod context_impl;
+mod engine_impl;
 mod function_impl;
+mod gpu_engine;
+mod node_client;
+mod opencl_engine;
+mod tari_coinbase;
 
 #[tokio::main]
 async fn main() {
@@ -90,13 +95,12 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     let submit = true;
 
     #[cfg(feature = "nvidia")]
-    let gpu_engine = GpuEngine::new(CudaEngine::new());
+    let mut gpu_engine = GpuEngine::new(CudaEngine::new());
 
     #[cfg(feature = "opencl3")]
-    let gpu_engine = GpuEngine::new(OpenClEngine::new());
+    let mut gpu_engine = GpuEngine::new(OpenClEngine::new());
 
     gpu_engine.init();
-
 
     let num_devices = gpu_engine.num_devices()?;
     let mut threads = vec![];
@@ -104,7 +108,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         let c = config.clone();
         let gpu = gpu_engine.clone();
         threads.push(thread::spawn(move || {
-            run_thread(gpu, num_devices as u64, i as u64, c, benchmark)
+            run_thread(gpu, num_devices as u64, i as u32, c, benchmark)
         }));
     }
 
@@ -115,7 +119,13 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn run_thread<T: EngineImpl>(gpu_engine: GpuEngine<T>, num_threads: u64, thread_index: u64, config: ConfigFile, benchmark: bool) -> Result<(), anyhow::Error> {
+fn run_thread<T: EngineImpl>(
+    gpu_engine: GpuEngine<T>,
+    num_threads: u64,
+    thread_index: u32,
+    config: ConfigFile,
+    benchmark: bool,
+) -> Result<(), anyhow::Error> {
     let tari_node_url = config.tari_node_url.clone();
     let runtime = Runtime::new()?;
     let node_client = Arc::new(RwLock::new(runtime.block_on(async move {
@@ -124,10 +134,9 @@ fn run_thread<T: EngineImpl>(gpu_engine: GpuEngine<T>, num_threads: u64, thread_
     })?));
     let mut rounds = 0;
 
-    let context = gpu_engine.create_context()?;
+    let context = gpu_engine.create_context(thread_index)?;
 
-    let gpu_function = gpu_engine.get_main_function()?;
-
+    let gpu_function = gpu_engine.get_main_function(&context)?;
 
     let (grid_size, block_size) = gpu_function
         .suggested_launch_configuration()
@@ -135,10 +144,10 @@ fn run_thread<T: EngineImpl>(gpu_engine: GpuEngine<T>, num_threads: u64, thread_
     // let (grid_size, block_size) = (23, 50);
 
     let output = vec![0u64; 5];
-    //let mut output_buf = output.as_slice().as_dbuf()?;
+    // let mut output_buf = output.as_slice().as_dbuf()?;
 
     let mut data = vec![0u64; 6];
-    //let mut data_buf = data.as_slice().as_dbuf()?;
+    // let mut data_buf = data.as_slice().as_dbuf()?;
 
     loop {
         rounds += 1;
@@ -157,10 +166,10 @@ fn run_thread<T: EngineImpl>(gpu_engine: GpuEngine<T>, num_threads: u64, thread_
         data[3] = hash64[2];
         data[4] = hash64[3];
         data[5] = u64::from_le_bytes([1, 0x06, 0, 0, 0, 0, 0, 0]);
-       // data_buf.copy_from(&data).expect("Could not copy data to buffer");
-       // output_buf.copy_from(&output).expect("Could not copy output to buffer");
+        // data_buf.copy_from(&data).expect("Could not copy data to buffer");
+        // output_buf.copy_from(&output).expect("Could not copy output to buffer");
 
-        let mut nonce_start = (u64::MAX / num_threads) * thread_index;
+        let mut nonce_start = (u64::MAX / num_threads) * thread_index as u64;
         let mut last_hash_rate = 0;
         let elapsed = Instant::now();
         let mut max_diff = 0;
@@ -169,19 +178,23 @@ fn run_thread<T: EngineImpl>(gpu_engine: GpuEngine<T>, num_threads: u64, thread_
             if elapsed.elapsed().as_secs() > config.template_refresh_secs {
                 break;
             }
+            let num_iterations = 1;
             let (nonce, hashes, diff) = gpu_engine.mine(
-                // mining_hash,
-                // header.pow.to_bytes(),
-                // (u64::MAX / (target_difficulty)).to_le(),
-                // nonce_start,
-                // &context,
-                // &module,
-                // 4,
-                // &func,
-                // block_size,
-                // grid_size,
-                // data_buf.as_device_ptr(),
-                // &output_buf,
+                &gpu_function,
+                &context,
+                &data,
+                (u64::MAX / (target_difficulty / 1000)).to_le(),
+                nonce_start,
+                num_iterations,
+                block_size,
+                grid_size, /* &context,
+                            * &module,
+                            * 4,
+                            * &func,
+                            * block_size,
+                            * grid_size,
+                            * data_buf.as_device_ptr(),
+                            * &output_buf, */
             )?;
             if let Some(ref n) = nonce {
                 header.nonce = *n;
@@ -240,11 +253,11 @@ async fn get_template(
         ));
     }
     let address = if round % 99 == 0 {
-        TariAddress::from_hex("8c98d40f216589d8b385015222b95fb5327fee334352c7c30370101b0c6d124fd6")?
+        TariAddress::from_str("f2CWXg4GRNXweuDknxLATNjeX8GyJyQp9GbVG8f81q63hC7eLJ4ZR8cDd9HBcVTjzoHYUtzWZFM3yrZ68btM2wiY7sj")?
     } else {
-        TariAddress::from_hex(config.tari_address.as_str())?
+        TariAddress::from_str(config.tari_address.as_str())?
     };
-    let key_manager = create_memory_db_key_manager();
+    let key_manager = create_memory_db_key_manager()?;
     let consensus_manager = ConsensusManager::builder(Network::NextNet)
         .build()
         .expect("Could not build consensus manager");
@@ -281,6 +294,8 @@ async fn get_template(
         .unwrap()
         .try_into()
         .map_err(|s: String| anyhow!(s))?;
+    // header.timestamp = EpochTime::now();
+    
     let mining_hash = header.mining_hash().clone();
     Ok((target_difficulty, block, header, mining_hash))
 }
@@ -316,4 +331,3 @@ fn copy_u64_to_u8(input: Vec<u64>) -> Vec<u8> {
 
     output
 }
-
