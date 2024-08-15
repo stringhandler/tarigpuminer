@@ -41,7 +41,7 @@ for (uint i = 0;i< num_rounds; i++) {
   for (uint j = 0; j < 25; j++) {
     state[j] = 0;
   }
-  state[0] = nonce_start + get_global_id(0);
+  state[0] = nonce_start + get_global_id(0) + i * get_global_size(0);
   state[1] = buffer[1];
   state[2] = buffer[2];
   state[3] = buffer[3];
@@ -157,7 +157,7 @@ for (uint i = 0;i< num_rounds; i++) {
      // check difficulty
      ulong swap = swap_endian_64(state[0]);
      if (swap < difficulty) {
-       output_1[0] = nonce_start + get_global_id(0) ;
+       output_1[0] = nonce_start + get_global_id(0) + i * get_global_size(0);
        output_1[1] = swap; 
      }
      else {

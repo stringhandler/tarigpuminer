@@ -1,4 +1,7 @@
-
+use crate::context_impl::ContextImpl;
+use crate::EngineImpl;
+use crate::FunctionImpl;
+use anyhow::Error;
 #[cfg(feature = "nvidia")]
 use cust::{
     device::DeviceAttribute,
@@ -6,58 +9,91 @@ use cust::{
     module::{ModuleJitOption, ModuleJitOption::DetermineTargetFromContext},
     prelude::{Module, *},
 };
-pub struct CudaEngine {
 
-}
+use std::time::Instant;
+#[derive(Clone)]
+pub struct CudaEngine {}
 
 impl CudaEngine {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
-    pub fn init() -> Result<(), anyhow::Error> {
-        #[cfg(feature = "nvidia")]
+impl EngineImpl for CudaEngine {
+    type Context = CudaContext;
+    type Function = CudaFunction;
+
+    fn init(&mut self) -> Result<(), anyhow::Error> {
         cust::init(CudaFlags::empty())?;
+        Ok(())
     }
 
+    fn num_devices(&self) -> Result<u32, anyhow::Error> {
+        let num_devices = Device::num_devices()?;
+        Ok(num_devices)
+    }
 
-    fn mine<T: DeviceCopy>(
-        mining_hash: FixedHash,
-        pow: Vec<u8>,
-        target: u64,
+    fn create_context(&self, device_index: u32) -> Result<Self::Context, anyhow::Error> {
+        let context = Context::new(Device::get_device(device_index)?)?;
+        context.set_flags(ContextFlags::SCHED_YIELD)?;
+
+        Ok(CudaContext { context })
+    }
+
+    fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {
+        let module = Module::from_ptx(
+            include_str!("../cuda/keccak.ptx"),
+            &[ModuleJitOption::GenerateLineInfo(true)],
+        )?;
+        // let func = context.module.get_function("keccakKernel")?;
+        Ok(CudaFunction { module })
+    }
+
+    fn mine(
+        &self,
+        function: &Self::Function,
+        context: &Self::Context,
+        data: &[u64],
+        min_difficulty: u64,
         nonce_start: u64,
-        context: &Context,
-        module: &Module,
         num_iterations: u32,
-        func: &Function<'_>,
         block_size: u32,
         grid_size: u32,
-        data_ptr: DevicePointer<T>,
-        output_buf: &DeviceBuffer<u64>,
-    ) -> Result<(Option<u64>, u32, u64), anyhow::Error> {
+    ) -> Result<(Option<u64>, u32, u64), Error> {
+        let output = vec![0u64; 5];
+        let mut output_buf = output.as_slice().as_dbuf()?;
+
+        let mut data_buf = data.as_dbuf()?;
+        data_buf.copy_from(data).expect("Could not copy data to buffer");
+        output_buf.copy_from(&output).expect("Could not copy output to buffer");
+
         let num_streams = 1;
         let mut streams = Vec::with_capacity(num_streams);
-        let mut max = None;
+        let func = function.module.get_function("keccakKernel")?;
 
         let output = vec![0u64; 5];
 
-        let timer = Instant::now();
         for st in 0..num_streams {
             let stream = Stream::new(StreamFlags::NON_BLOCKING, None)?;
 
             streams.push(stream);
         }
 
+        let data_ptr = data_buf.as_device_ptr();
         for st in 0..num_streams {
             let stream = &streams[st];
             unsafe {
                 launch!(
-                func<<<grid_size, block_size, 0, stream>>>(
-                data_ptr,
-                     nonce_start,
-                     target,
-                     num_iterations,
-                     output_buf.as_device_ptr(),
+                    func<<<grid_size, block_size, 0, stream>>>(
+                    data_ptr,
+                         nonce_start,
+                         min_difficulty,
+                         num_iterations,
+                         output_buf.as_device_ptr(),
 
-                )
-            )?;
+                    )
+                )?;
             }
         }
 
@@ -67,26 +103,33 @@ impl CudaEngine {
             unsafe {
                 output_buf.copy_to(&mut out1)?;
             }
-            // stream.synchronize()?;
+            //stream.synchronize()?;
 
             if out1[0] > 0 {
                 return Ok((Some((&out1[0]).clone()), grid_size * block_size * num_iterations, 0));
             }
         }
 
-        match max {
-            Some((i, diff)) => {
-                if diff > target {
-                    return Ok((
-                        Some(i),
-                        grid_size * block_size * num_iterations * num_streams as u32,
-                        diff,
-                    ));
-                }
-                return Ok((None, grid_size * block_size * num_iterations * num_streams as u32, diff));
-            },
-            None => Ok((None, grid_size * block_size * num_iterations * num_streams as u32, 0)),
-        }
+        Ok((None, grid_size * block_size * num_iterations, 0))
     }
 }
 
+pub struct CudaContext {
+    context: Context,
+}
+
+impl CudaContext {}
+
+impl ContextImpl for CudaContext {}
+
+pub struct CudaFunction {
+    module: Module,
+}
+impl FunctionImpl for CudaFunction {
+    fn suggested_launch_configuration(&self) -> Result<(u32, u32), anyhow::Error> {
+        let func = self.module.get_function("keccakKernel")?;
+        let (grid_size, block_size) = func.suggested_launch_configuration(0, 0.into())?;
+        // Ok((grid_size, block_size))
+        Ok((1000, 100))
+    }
+}

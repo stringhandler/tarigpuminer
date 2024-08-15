@@ -33,17 +33,25 @@ use tokio::{
     try_join,
 };
 
+#[cfg(feature = "opencl3")]
+use crate::opencl_engine::OpenClEngine;
 use crate::{
     config_file::ConfigFile, engine_impl::EngineImpl, function_impl::FunctionImpl, gpu_engine::GpuEngine,
-    node_client::NodeClient, opencl_engine::OpenClEngine, tari_coinbase::generate_coinbase,
+    node_client::NodeClient, tari_coinbase::generate_coinbase,
 };
 
 mod config_file;
 mod context_impl;
+#[cfg(feature = "nvidia")]
+mod cuda_engine;
+#[cfg(feature = "nvidia")]
+use crate::cuda_engine::CudaEngine;
+
 mod engine_impl;
 mod function_impl;
 mod gpu_engine;
 mod node_client;
+#[cfg(feature = "opencl3")]
 mod opencl_engine;
 mod tari_coinbase;
 
@@ -171,7 +179,7 @@ fn run_thread<T: EngineImpl>(
             if elapsed.elapsed().as_secs() > config.template_refresh_secs {
                 break;
             }
-            let num_iterations = 1;
+            let num_iterations = 16;
             let (nonce, hashes, diff) = gpu_engine.mine(
                 &gpu_function,
                 &context,
@@ -208,7 +216,6 @@ fn run_thread<T: EngineImpl>(
                         (nonce_start / elapsed.elapsed().as_secs()).to_formatted_string(&Locale::en)
                     );
                 }
-                last_hash_rate = nonce_start / elapsed.elapsed().as_secs();
             }
             if nonce.is_some() {
                 header.nonce = nonce.unwrap();
