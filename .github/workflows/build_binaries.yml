@@ -1,15 +1,16 @@
 ---
 name: Build Matrix of Binaries
-            
-'on':
-        push:
-            branches:
-                - main
-                - build-*
-            tags:
-                - "v[0-9]+.[0-9]+.[0-9]+"    
 
-env: 
+'on':
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+    branches:
+      - main
+      - build-*
+  workflow_dispatch:
+
+env:
     TARI_TARGET_NETWORK: nextnet
     TARI_NETWORK: nextnet
 
@@ -34,7 +35,8 @@ jobs:
                    #  vcpkg.exe install sqlite3:x64-windows zlib:x64-windows
                    # Bug in choco - need to install each package individually
                    choco upgrade llvm -y
-                   choco upgrade protoc -y     
+                   choco upgrade protoc -y
+                   choco upgrade opencl-intel-cpu-runtime -y
 
             - name: build (windows)
               if: startsWith(runner.os,'Windows')
@@ -60,4 +62,4 @@ jobs:
             artifacts: "xtr_*/**/*"
             token: ${{ secrets.GITHUB_TOKEN }}
             prerelease: true
-            draft: true            
+            draft: true
