@@ -10,21 +10,29 @@ name: Build Matrix of Binaries
                 - "v[0-9]+.[0-9]+.[0-9]+"    
 
 env: 
-    TARI_TARGET_NETWORK: nextnet
-    TARI_NETWORK: nextnet
+    TARI_TARGET_NETWORK: esme
+    TARI_NETWORK: esme
 
 jobs:
     build:
         runs-on: ${{ matrix.os }}
         strategy:
             matrix:
-                os: [windows-2019, ]
+              include:
+                #  - platform: 'ubuntu-20.04'
+                #    args: ''
+                  - platform: 'windows-2019'
+                    # args: ''
+                  - platform: 'macos-latest'
+                    # args: '--verbose --target universal-apple-darwin'
+
                   
         steps:
             - uses: actions/checkout@v4
             - name: Setup Rust toolchain
               uses: dtolnay/rust-toolchain@stable
             - uses: Jimver/cuda-toolkit@v0.2.14
+              if: startsWith(runner.os,'Windows')
               with:
                  method: network
                  sub-packages: '["nvcc", "cudart"]'
@@ -36,16 +44,36 @@ jobs:
                    choco upgrade llvm -y
                    choco upgrade protoc -y     
 
-            - name: build (windows)
+            - name: build opencl (windows)
               if: startsWith(runner.os,'Windows')
               run: |
-                cd src
-                cd miner
-                cargo build --release --bin xtrgpuminer
+                cargo build --release --features "opencl3" --bin xtrgpuminer
             - uses: actions/upload-artifact@v4
+              if: startsWith(runner.os,'Windows')
               with:
-                name: xtr_miner
+                name: xtr_miner_opencl_windows
                 path: src/miner/target/release/xtrgpuminer.exe
+
+            - name: build cuda (windows)
+              if: startsWith(runner.os,'Windows')
+              run: |
+                  cargo build --release --features "nvidia" --bin xtrgpuminer
+            - uses: actions/upload-artifact@v4
+              if: startsWith(runner.os,'Windows')
+              with:
+                  name: xtr_miner_cuda_windows
+                  path: src/miner/target/release/xtrgpuminer.exe    
+
+
+            - name: build opencl (macos)
+              if: startsWith(runner.os,'Mac')
+              run: |
+                    cargo build --release --features "opencl3" --bin xtrgpuminer
+            - uses: actions/upload-artifact@v4
+              if: startsWith(runner.os,'Mac')
+              with:
+                    name: xtr_miner_opencl_macos
+                    path: src/miner/target/release/xtrgpuminer.exe       
 
     create-release:
       runs-on: ubuntu-latest
