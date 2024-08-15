@@ -79,7 +79,7 @@ jobs:
               if: startsWith(runner.os,'macOs')
               with:
                     name: xtr_miner_opencl_macos
-                    path: target/release/xtrgpuminer.exe       
+                    path: target/release/xtrgpuminer       
 
     create-release:
       runs-on: ubuntu-latest
