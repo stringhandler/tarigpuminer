@@ -36,6 +36,12 @@ jobs:
               with:
                  method: network
                  sub-packages: '["nvcc", "cudart"]'
+            - name: Install dependencies (macOS)
+              if: startsWith(runner.os,'macOS')
+              run: |
+                   # openssl, cmake and autoconf already installed
+                   brew install zip coreutils automake protobuf libtool
+              
             - name: Install Windows dependencies
               if: startsWith(runner.os,'Windows')
               run: |
@@ -66,11 +72,11 @@ jobs:
 
 
             - name: build opencl (macos)
-              if: startsWith(runner.os,'Mac')
+              if: startsWith(runner.os,'macOs')
               run: |
                     cargo build --release --features "opencl3" --bin xtrgpuminer
             - uses: actions/upload-artifact@v4
-              if: startsWith(runner.os,'Mac')
+              if: startsWith(runner.os,'macOs')
               with:
                     name: xtr_miner_opencl_macos
                     path: src/miner/target/release/xtrgpuminer.exe       
