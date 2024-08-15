@@ -58,7 +58,7 @@ jobs:
               if: startsWith(runner.os,'Windows')
               with:
                 name: xtr_miner_opencl_windows
-                path: src/miner/target/release/xtrgpuminer.exe
+                path: target/release/xtrgpuminer.exe
 
             - name: build cuda (windows)
               if: startsWith(runner.os,'Windows')
@@ -68,7 +68,7 @@ jobs:
               if: startsWith(runner.os,'Windows')
               with:
                   name: xtr_miner_cuda_windows
-                  path: src/miner/target/release/xtrgpuminer.exe    
+                  path: target/release/xtrgpuminer.exe    
 
 
             - name: build opencl (macos)
@@ -79,7 +79,7 @@ jobs:
               if: startsWith(runner.os,'macOs')
               with:
                     name: xtr_miner_opencl_macos
-                    path: src/miner/target/release/xtrgpuminer.exe       
+                    path: target/release/xtrgpuminer.exe       
 
     create-release:
       runs-on: ubuntu-latest
