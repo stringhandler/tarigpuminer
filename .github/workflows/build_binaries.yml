@@ -268,9 +268,14 @@ jobs:
             ${{ github.workspace }}/DIST/*.zip*
 
   create-release:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+
     runs-on: ubuntu-latest
     needs: builds
-    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+
+    env:
+      TS_VERSION: ${{ needs.builds.outputs.TS_VERSION }}
+      VSHA_SHORT: ${{ needs.builds.outputs.VSHA_SHORT }}
 
     permissions:
       contents: write
@@ -291,14 +296,14 @@ jobs:
           sudo apt-get update
           sudo apt-get --no-install-recommends --assume-yes install dos2unix
           ls -alhtR
-          if [ -f "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}.${{ env.TS_SIG_FN }}" ] ; then
-            rm -fv "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}.${{ env.TS_SIG_FN }}"
+          if [ -f "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}-${{ env.VSHA_SHORT }}.${{ env.TS_SIG_FN }}" ] ; then
+            rm -fv "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}-${{ env.VSHA_SHORT }}.${{ env.TS_SIG_FN }}"
           fi
           # Merge all sha256 files into one
-          find . -name "*.sha256" -type f -print | xargs cat >> "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}.${{ env.TS_SIG_FN }}"
-          dos2unix --quiet "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}.${{ env.TS_SIG_FN }}"
-          cat "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}.${{ env.TS_SIG_FN }}"
-          sha256sum --ignore-missing --check "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}.${{ env.TS_SIG_FN }}"
+          find . -name "*.sha256" -type f -print | xargs cat >> "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}-${{ env.VSHA_SHORT }}.${{ env.TS_SIG_FN }}"
+          dos2unix --quiet "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}-${{ env.VSHA_SHORT }}.${{ env.TS_SIG_FN }}"
+          cat "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}-${{ env.VSHA_SHORT }}.${{ env.TS_SIG_FN }}"
+          sha256sum --ignore-missing --check "${{ env.TS_FILENAME }}-${{ env.TS_VERSION }}-${{ env.VSHA_SHORT }}.${{ env.TS_SIG_FN }}"
           ls -alhtR
 
       - name: Create release
