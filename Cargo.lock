@@ -4292,7 +4292,7 @@ dependencies = [
 
 [[package]]
 name = "xtrgpuminer"
-version = "0.1.6"
+version = "0.1.7-pre.0"
 dependencies = [
  "anyhow",
  "clap 4.5.4",

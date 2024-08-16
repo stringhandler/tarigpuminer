@@ -1,6 +1,6 @@
 [package]
 name = "xtrgpuminer"
-version = "0.1.6"
+version = "0.1.7-pre.0"
 edition = "2021"
 
 
@@ -29,8 +29,8 @@ prost-types = "0.11.9"
 rand = "0.8"
 libsqlite3-sys = { version = "0.25.1", features = ["bundled"] }
 
-cust = {  version ="0.3.2", optional=true }
-opencl3 = { version="0.9.5", optional=true}
+cust = { version = "0.3.2", optional = true }
+opencl3 = { version = "0.9.5", optional = true }
 opencl-sys = "*"
 
 [features]
