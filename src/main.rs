@@ -9,7 +9,7 @@ use cust::{
     module::{ModuleJitOption, ModuleJitOption::DetermineTargetFromContext},
     prelude::{Module, *},
 };
-use minotari_app_grpc::tari_rpc::{BlockHeader as grpc_header, TransactionOutput as GrpcTransactionOutput};
+use minotari_app_grpc::tari_rpc::{BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput};
 use num_format::{Locale, ToFormattedString};
 use sha3::{digest::crypto_common::rand_core::block, Digest, Sha3_256};
 use std::str::FromStr;
@@ -46,6 +46,7 @@ mod context_impl;
 mod cuda_engine;
 #[cfg(feature = "nvidia")]
 use crate::cuda_engine::CudaEngine;
+use crate::node_client::ClientType;
 
 mod engine_impl;
 mod function_impl;
@@ -54,6 +55,7 @@ mod node_client;
 #[cfg(feature = "opencl3")]
 mod opencl_engine;
 mod tari_coinbase;
+mod p2pool_client;
 
 #[tokio::main]
 async fn main() {
@@ -129,9 +131,15 @@ fn run_thread<T: EngineImpl>(
 ) -> Result<(), anyhow::Error> {
     let tari_node_url = config.tari_node_url.clone();
     let runtime = Runtime::new()?;
+    let client_type = if benchmark {
+        ClientType::Benchmark
+    } else if config.use_p2pool {
+        ClientType::P2Pool(TariAddress::from_str(config.tari_address.as_str())?)
+    } else {
+        ClientType::BaseNode
+    };
     let node_client = Arc::new(RwLock::new(runtime.block_on(async move {
-        node_client::create_client(&tari_node_url, benchmark).await
-        // node_client::NodeClient::connect(&tari_node_url).await
+        node_client::create_client(client_type, &tari_node_url).await
     })?));
     let mut rounds = 0;
 
@@ -263,8 +271,25 @@ async fn get_template(
     let consensus_manager = ConsensusManager::builder(Network::NextNet)
         .build()
         .expect("Could not build consensus manager");
-    println!("Getting block template");
+
     let mut lock = node_client.write().await;
+
+    // p2pool enabled
+    if config.use_p2pool {
+        let block_result = lock.get_new_block(NewBlockTemplate::default()).await?;
+        let block = block_result.block.unwrap();
+        let mut header: BlockHeader = block
+            .clone()
+            .header
+            .unwrap()
+            .try_into()
+            .map_err(|s: String| anyhow!(s))?;
+        let mining_hash = header.mining_hash().clone();
+        // TODO: return target difficulty properly from original p2pool result
+        return Ok((, block, header, mining_hash));
+    }
+
+    println!("Getting block template");
     let template = lock.get_block_template().await?;
     let mut block_template = template.new_block_template.clone().unwrap();
     let height = block_template.header.as_ref().unwrap().height;

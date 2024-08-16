@@ -10,10 +10,12 @@ use minotari_app_grpc::tari_rpc::{
     NewBlockTemplateResponse,
     PowAlgo,
 };
+use tari_common_types::tari_address::TariAddress;
 use tari_core::validation::aggregate_body;
 use tonic::async_trait;
 
 use crate::Cli;
+use crate::p2pool_client::P2poolClientWrapper;
 
 pub(crate) struct BaseNodeClientWrapper {
     client: BaseNodeClient<tonic::transport::Channel>,
@@ -74,16 +76,27 @@ pub trait NodeClient {
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error>;
 }
 
-pub(crate) async fn create_client(url: &str, benchmark: bool) -> Result<Client, anyhow::Error> {
-    if benchmark {
-        return Ok(Client::Benchmark(BenchmarkNodeClient {}));
-    }
-    Ok(Client::BaseNode(BaseNodeClientWrapper::connect(url).await?))
+pub(crate) async fn create_client(client_type: ClientType, url: &str) -> Result<Client, anyhow::Error> {
+    Ok(
+        match client_type {
+            ClientType::BaseNode => Client::BaseNode(BaseNodeClientWrapper::connect(url).await?),
+            ClientType::Benchmark => Client::Benchmark(BenchmarkNodeClient {}),
+            ClientType::P2Pool(wallet_payment_address) => 
+                Client::P2Pool(P2poolClientWrapper::connect(url, wallet_payment_address).await?)
+        }
+    )
 }
 
 pub(crate) enum Client {
     BaseNode(BaseNodeClientWrapper),
+    P2Pool(P2poolClientWrapper),
     Benchmark(BenchmarkNodeClient),
+}
+
+pub enum ClientType {
+    BaseNode,
+    Benchmark,
+    P2Pool(TariAddress)
 }
 
 impl Client {
@@ -91,6 +104,7 @@ impl Client {
         match self {
             Client::BaseNode(client) => client.get_version().await,
             Client::Benchmark(client) => client.get_version().await,
+            Client::P2Pool(client) => client.get_version().await,
         }
     }
 
@@ -98,6 +112,7 @@ impl Client {
         match self {
             Client::BaseNode(client) => client.get_block_template().await,
             Client::Benchmark(client) => client.get_block_template().await,
+            Client::P2Pool(client) => client.get_block_template().await,
         }
     }
 
@@ -105,6 +120,7 @@ impl Client {
         match self {
             Client::BaseNode(client) => client.get_new_block(template).await,
             Client::Benchmark(client) => client.get_new_block(template).await,
+            Client::P2Pool(client) => client.get_new_block(template).await,
         }
     }
 
@@ -112,6 +128,7 @@ impl Client {
         match self {
             Client::BaseNode(client) => client.submit_block(block).await,
             Client::Benchmark(client) => client.submit_block(block).await,
+            Client::P2Pool(client) => client.submit_block(block).await,
         }
     }
 }

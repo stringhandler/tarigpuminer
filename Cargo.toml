@@ -9,6 +9,7 @@ tari_core = { git = "https://github.com/tari-project/tari", tag = "v1.1.0-pre.2"
     "transactions",
 ] }
 minotari_app_grpc = { git = "http://github.com/tari-project/tari", tag = "v1.1.0-pre.2" }
+#minotari_app_grpc = { git = "http://github.com/tari-project/tari", branch = "development" }
 tari_common_types = { git = "http://github.com/tari-project/tari", tag = "v1.1.0-pre.2" }
 tari_common = { git = "http://github.com/tari-project/tari", tag = "v1.1.0-pre.2" }
 tari_script = { git = "http://github.com/tari-project/tari", tag = "v1.1.0-pre.2" }
