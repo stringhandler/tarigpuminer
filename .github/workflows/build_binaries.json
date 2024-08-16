@@ -1,0 +1,92 @@
+[
+  {
+    "name": "cuda-linux-x86_64",
+    "runs-on": "ubuntu-20.04",
+    "rust": "nightly-2024-07-07",
+    "target": "x86_64-unknown-linux-gnu",
+    "cross": false,
+    "features": "nvidia"
+  },
+  {
+    "name": "opencl-linux-x86_64",
+    "runs-on": "ubuntu-20.04",
+    "rust": "nightly-2024-07-07",
+    "target": "x86_64-unknown-linux-gnu",
+    "cross": false,
+    "features": "opencl3"
+  },
+  {
+    "name": "opencl-linux-arm64",
+    "runs-on": "ubuntu-latest",
+    "rust": "stable",
+    "target": "aarch64-unknown-linux-gnu",
+    "cross": true,
+    "features": "opencl3",
+    "build_enabled": true,
+    "best_effort": true
+  },
+  {
+    "name": "opencl-linux-riscv64",
+    "runs-on": "ubuntu-latest",
+    "rust": "stable",
+    "target": "riscv64gc-unknown-linux-gnu",
+    "cross": true,
+    "features": "opencl3",
+    "build_enabled": true,
+    "best_effort": true
+  },
+  {
+    "name": "opencl-macos-x86_64",
+    "runs-on": "macos-12",
+    "rust": "stable",
+    "target": "x86_64-apple-darwin",
+    "cross": false,
+    "features": "opencl3"
+  },
+  {
+    "name": "opencl-macos-arm64",
+    "runs-on": "macos-14",
+    "rust": "stable",
+    "target": "aarch64-apple-darwin",
+    "cross": false,
+    "features": "opencl3"
+  },
+  {
+    "name": "cuda-windows-x64",
+    "runs-on": "windows-2019",
+    "rust": "stable",
+    "target": "x86_64-pc-windows-msvc",
+    "cross": false,
+    "features": "nvidia"
+  },
+  {
+    "name": "opencl-windows-x64",
+    "runs-on": "windows-2019",
+    "rust": "stable",
+    "target": "x86_64-pc-windows-msvc",
+    "rustflags": "-L C:/vcpkg/packages/opencl_x64-windows/lib",
+    "cross": false,
+    "features": "opencl3"
+  },
+  {
+    "name": "cuda-windows-arm64",
+    "runs-on": "windows-latest",
+    "rust": "stable",
+    "target": "aarch64-pc-windows-msvc",
+    "cross": false,
+    "features": "nvidia",
+    "build_enabled": true,
+    "best_effort": true
+  },
+  {
+    "name": "opencl-windows-arm64",
+    "runs-on": "windows-latest",
+    "rust": "stable",
+    "target": "aarch64-pc-windows-msvc",
+    "rustflags": "-L C:/vcpkg/packages/opencl_x64-windows/lib",
+    "cross": false,
+    "features": "opencl3",
+    "build_enabled": true,
+    "best_effort": true
+  }
+]
