@@ -1,13 +1,13 @@
 use anyhow::{anyhow, Error};
-use minotari_app_grpc::authentication::ClientAuthenticationInterceptor;
-use minotari_app_grpc::tari_rpc::{Block, GetNewBlockRequest, GetNewBlockResult, NewBlockTemplate, NewBlockTemplateResponse, SubmitBlockRequest};
-use minotari_app_grpc::tari_rpc::base_node_client::BaseNodeClient;
 use minotari_app_grpc::tari_rpc::sha_p2_pool_client::ShaP2PoolClient;
+use minotari_app_grpc::tari_rpc::{
+    Block, GetNewBlockRequest, NewBlockTemplate, NewBlockTemplateResponse, SubmitBlockRequest,
+};
 use tari_common_types::tari_address::TariAddress;
 use tonic::async_trait;
-use tonic::codegen::InterceptedService;
 use tonic::transport::Channel;
-use crate::node_client::{NodeClient};
+
+use crate::node_client::{NewBlockResult, NodeClient};
 
 pub struct P2poolClientWrapper {
     client: ShaP2PoolClient<Channel>,
@@ -18,7 +18,10 @@ impl P2poolClientWrapper {
     pub async fn connect(url: &str, wallet_payment_address: TariAddress) -> Result<Self, anyhow::Error> {
         println!("Connecting to {}", url);
         let client = ShaP2PoolClient::connect(url.to_string()).await?;
-        Ok(Self { client, wallet_payment_address })
+        Ok(Self {
+            client,
+            wallet_payment_address,
+        })
     }
 }
 
@@ -32,19 +35,25 @@ impl NodeClient for P2poolClientWrapper {
         Err(anyhow!("not supported"))
     }
 
-    async fn get_new_block(&mut self, _template: NewBlockTemplate) -> Result<GetNewBlockResult, Error> {
-        let result = self.client.get_new_block(GetNewBlockRequest::default()).await?.into_inner();
-        if let Some(block_result) = result.block {
-            return Ok(block_result);
-        }
-        
-        Err(anyhow!("no block in response"))
+    async fn get_new_block(&mut self, _template: NewBlockTemplate) -> Result<NewBlockResult, Error> {
+        let response = self
+            .client
+            .get_new_block(GetNewBlockRequest::default())
+            .await?
+            .into_inner();
+        Ok(NewBlockResult {
+            result: response.block.ok_or(anyhow!("missing block response"))?,
+            target_difficulty: response.target_difficulty,
+        })
     }
 
     async fn submit_block(&mut self, block: Block) -> Result<(), Error> {
-        self.client.submit_block(SubmitBlockRequest{
-            block: Some(block), 
-            wallet_payment_address: self.wallet_payment_address.to_base58(),
-        })
+        self.client
+            .submit_block(SubmitBlockRequest {
+                block: Some(block),
+                wallet_payment_address: self.wallet_payment_address.to_base58(),
+            })
+            .await?;
+        Ok(())
     }
 }

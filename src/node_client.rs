@@ -1,20 +1,11 @@
+use anyhow::anyhow;
 use minotari_app_grpc::tari_rpc::{
-    base_node_client::BaseNodeClient,
-    pow_algo::PowAlgos,
-    AggregateBody,
-    Block,
-    Empty,
-    GetNewBlockResult,
-    NewBlockTemplate,
-    NewBlockTemplateRequest,
-    NewBlockTemplateResponse,
-    PowAlgo,
+    base_node_client::BaseNodeClient, pow_algo::PowAlgos, Block, Empty, GetNewBlockResult, NewBlockTemplate,
+    NewBlockTemplateRequest, NewBlockTemplateResponse, PowAlgo,
 };
 use tari_common_types::tari_address::TariAddress;
-use tari_core::validation::aggregate_body;
 use tonic::async_trait;
 
-use crate::Cli;
 use crate::p2pool_client::P2poolClientWrapper;
 
 pub(crate) struct BaseNodeClientWrapper {
@@ -52,9 +43,9 @@ impl NodeClient for BaseNodeClientWrapper {
         Ok(res.into_inner())
     }
 
-    async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<GetNewBlockResult, anyhow::Error> {
+    async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<NewBlockResult, anyhow::Error> {
         let res = self.client.get_new_block(tonic::Request::new(template)).await?;
-        Ok(res.into_inner())
+        Ok(NewBlockResult::try_from(res.into_inner())?)
     }
 
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error> {
@@ -71,20 +62,19 @@ pub trait NodeClient {
 
     async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, anyhow::Error>;
 
-    async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<GetNewBlockResult, anyhow::Error>;
+    async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<NewBlockResult, anyhow::Error>;
 
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error>;
 }
 
 pub(crate) async fn create_client(client_type: ClientType, url: &str) -> Result<Client, anyhow::Error> {
-    Ok(
-        match client_type {
-            ClientType::BaseNode => Client::BaseNode(BaseNodeClientWrapper::connect(url).await?),
-            ClientType::Benchmark => Client::Benchmark(BenchmarkNodeClient {}),
-            ClientType::P2Pool(wallet_payment_address) => 
-                Client::P2Pool(P2poolClientWrapper::connect(url, wallet_payment_address).await?)
-        }
-    )
+    Ok(match client_type {
+        ClientType::BaseNode => Client::BaseNode(BaseNodeClientWrapper::connect(url).await?),
+        ClientType::Benchmark => Client::Benchmark(BenchmarkNodeClient {}),
+        ClientType::P2Pool(wallet_payment_address) => {
+            Client::P2Pool(P2poolClientWrapper::connect(url, wallet_payment_address).await?)
+        },
+    })
 }
 
 pub(crate) enum Client {
@@ -96,7 +86,28 @@ pub(crate) enum Client {
 pub enum ClientType {
     BaseNode,
     Benchmark,
-    P2Pool(TariAddress)
+    P2Pool(TariAddress),
+}
+
+pub struct NewBlockResult {
+    pub result: GetNewBlockResult,
+    pub target_difficulty: u64,
+}
+
+impl TryFrom<GetNewBlockResult> for NewBlockResult {
+    type Error = anyhow::Error;
+
+    fn try_from(result: GetNewBlockResult) -> Result<Self, Self::Error> {
+        let target_difficulty = result
+            .miner_data
+            .clone()
+            .ok_or(anyhow!("missing miner data"))?
+            .target_difficulty;
+        Ok(Self {
+            result,
+            target_difficulty,
+        })
+    }
 }
 
 impl Client {
@@ -116,7 +127,7 @@ impl Client {
         }
     }
 
-    pub async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<GetNewBlockResult, anyhow::Error> {
+    pub async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<NewBlockResult, anyhow::Error> {
         match self {
             Client::BaseNode(client) => client.get_new_block(template).await,
             Client::Benchmark(client) => client.get_new_block(template).await,
@@ -145,7 +156,7 @@ impl NodeClient for BenchmarkNodeClient {
         todo!()
     }
 
-    async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<GetNewBlockResult, anyhow::Error> {
+    async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<NewBlockResult, anyhow::Error> {
         todo!()
     }
 

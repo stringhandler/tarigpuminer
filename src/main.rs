@@ -1,38 +1,32 @@
-use std::{cmp, convert::TryInto, env::current_dir, iter, num, path::PathBuf, sync::Arc, thread, time::Instant};
+use std::str::FromStr;
+use std::{convert::TryInto, env::current_dir, path::PathBuf, sync::Arc, thread, time::Instant};
 
 use anyhow::{anyhow, Context as AnyContext};
 use clap::Parser;
 #[cfg(feature = "nvidia")]
 use cust::{
-    device::DeviceAttribute,
     memory::{AsyncCopyDestination, DeviceCopy},
-    module::{ModuleJitOption, ModuleJitOption::DetermineTargetFromContext},
-    prelude::{Module, *},
+    prelude::*,
 };
-use minotari_app_grpc::tari_rpc::{BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput};
+use minotari_app_grpc::tari_rpc::{
+    BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput,
+};
 use num_format::{Locale, ToFormattedString};
-use sha3::{digest::crypto_common::rand_core::block, Digest, Sha3_256};
-use std::str::FromStr;
+use sha3::Digest;
 use tari_common::configuration::Network;
 use tari_common_types::{tari_address::TariAddress, types::FixedHash};
 use tari_core::{
     blocks::BlockHeader,
     consensus::ConsensusManager,
-    proof_of_work::{sha3x_difficulty, Difficulty},
     transactions::{
         key_manager::create_memory_db_key_manager, tari_amount::MicroMinotari, transaction_components::RangeProofType,
     },
 };
-use tari_utilities::epoch_time::EpochTime;
-use tokio::{
-    runtime::{Handle, Runtime},
-    sync::RwLock,
-    task,
-    task::JoinSet,
-    time::sleep,
-    try_join,
-};
+use tokio::{runtime::Runtime, sync::RwLock};
 
+#[cfg(feature = "nvidia")]
+use crate::cuda_engine::CudaEngine;
+use crate::node_client::ClientType;
 #[cfg(feature = "opencl3")]
 use crate::opencl_engine::OpenClEngine;
 use crate::{
@@ -44,18 +38,14 @@ mod config_file;
 mod context_impl;
 #[cfg(feature = "nvidia")]
 mod cuda_engine;
-#[cfg(feature = "nvidia")]
-use crate::cuda_engine::CudaEngine;
-use crate::node_client::ClientType;
-
 mod engine_impl;
 mod function_impl;
 mod gpu_engine;
 mod node_client;
 #[cfg(feature = "opencl3")]
 mod opencl_engine;
-mod tari_coinbase;
 mod p2pool_client;
+mod tari_coinbase;
 
 #[tokio::main]
 async fn main() {
@@ -103,7 +93,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     #[cfg(feature = "opencl3")]
     let mut gpu_engine = GpuEngine::new(OpenClEngine::new());
 
-    gpu_engine.init();
+    gpu_engine.init().unwrap();
 
     let num_devices = gpu_engine.num_devices()?;
     let mut threads = vec![];
@@ -133,14 +123,15 @@ fn run_thread<T: EngineImpl>(
     let runtime = Runtime::new()?;
     let client_type = if benchmark {
         ClientType::Benchmark
-    } else if config.use_p2pool {
+    } else if config.p2pool_enabled {
         ClientType::P2Pool(TariAddress::from_str(config.tari_address.as_str())?)
     } else {
         ClientType::BaseNode
     };
-    let node_client = Arc::new(RwLock::new(runtime.block_on(async move {
-        node_client::create_client(client_type, &tari_node_url).await
-    })?));
+    let node_client =
+        Arc::new(RwLock::new(runtime.block_on(async move {
+            node_client::create_client(client_type, &tari_node_url).await
+        })?));
     let mut rounds = 0;
 
     let context = gpu_engine.create_context(thread_index)?;
@@ -275,9 +266,9 @@ async fn get_template(
     let mut lock = node_client.write().await;
 
     // p2pool enabled
-    if config.use_p2pool {
+    if config.p2pool_enabled {
         let block_result = lock.get_new_block(NewBlockTemplate::default()).await?;
-        let block = block_result.block.unwrap();
+        let block = block_result.result.block.unwrap();
         let mut header: BlockHeader = block
             .clone()
             .header
@@ -285,8 +276,7 @@ async fn get_template(
             .try_into()
             .map_err(|s: String| anyhow!(s))?;
         let mining_hash = header.mining_hash().clone();
-        // TODO: return target difficulty properly from original p2pool result
-        return Ok((, block, header, mining_hash));
+        return Ok((block_result.target_difficulty, block, header, mining_hash));
     }
 
     println!("Getting block template");
@@ -313,7 +303,7 @@ async fn get_template(
     body.outputs.push(grpc_output);
     body.kernels.push(coinbase_kernel.into());
     let target_difficulty = miner_data.target_difficulty;
-    let block_result = lock.get_new_block(block_template).await?;
+    let block_result = lock.get_new_block(block_template).await?.result;
     let block = block_result.block.unwrap();
     let mut header: BlockHeader = block
         .clone()

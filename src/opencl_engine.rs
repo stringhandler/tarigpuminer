@@ -1,21 +1,19 @@
 use std::{
-    fs::File,
     io::Read,
-    os::raw::c_void,
     ptr,
     sync::{Arc, RwLock},
 };
 
 use anyhow::Error;
 use opencl3::{
-    command_queue::{CommandQueue, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, CL_QUEUE_PROFILING_ENABLE},
+    command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE},
     context::Context,
     device::{Device, CL_DEVICE_TYPE_GPU},
     kernel::{ExecuteKernel, Kernel},
     memory::{Buffer, CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY},
     platform::{get_platforms, Platform},
     program::Program,
-    types::{cl_ulong, CL_FALSE, CL_TRUE},
+    types::{cl_ulong, CL_TRUE},
 };
 
 use crate::{context_impl::ContextImpl, engine_impl::EngineImpl, function_impl::FunctionImpl};
@@ -128,7 +126,7 @@ impl EngineImpl for OpenClEngine {
             .set_arg(&min_difficulty)
             .set_arg(&num_iterations)
             .set_arg(&output_buffer)
-            
+
             .set_global_work_size((grid_size * block_size) as usize)
             // .set_local_work_size(max_workgroups)
             // .set_wait_event(&y_write_event)
@@ -145,13 +143,13 @@ impl EngineImpl for OpenClEngine {
                 dbg!(&output);
                 return Ok((
                     Some(output[0]),
-                    grid_size * block_size *  num_iterations,
+                    grid_size * block_size * num_iterations,
                     u64::MAX / output[1],
                 ));
             }
-            return Ok((None, grid_size *block_size *  num_iterations, u64::MAX / output[1]));
+            return Ok((None, grid_size * block_size * num_iterations, u64::MAX / output[1]));
         }
-        Ok((None, grid_size * block_size* num_iterations, 0))
+        Ok((None, grid_size * block_size * num_iterations, 0))
     }
 }
 fn create_program_from_source(context: &Context) -> Option<Program> {

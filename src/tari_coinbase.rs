@@ -3,16 +3,14 @@ use tari_common_types::{tari_address::TariAddress, types::PublicKey};
 use tari_core::{
     consensus::ConsensusConstants,
     one_sided::{
-        diffie_hellman_stealth_domain_hasher,
-        shared_secret_to_output_encryption_key,
+        diffie_hellman_stealth_domain_hasher, shared_secret_to_output_encryption_key,
         shared_secret_to_output_spending_key,
     },
     transactions::{
         key_manager::{MemoryDbKeyManager, TariKeyId, TransactionKeyManagerBranch, TransactionKeyManagerInterface},
         tari_amount::MicroMinotari,
         transaction_components::{RangeProofType, Transaction, TransactionKernel, TransactionOutput, WalletOutput},
-        CoinbaseBuildError,
-        CoinbaseBuilder,
+        CoinbaseBuildError, CoinbaseBuilder,
     },
 };
 use tari_crypto::keys::PublicKey as PK;
@@ -43,7 +41,7 @@ pub async fn generate_coinbase(
         stealth_payment,
         consensus_constants,
         range_proof_type,
-        PaymentId::Empty
+        PaymentId::Empty,
     )
     .await?;
     Ok((coinbase_output, coinbase_kernel))
