@@ -8,7 +8,7 @@ pub(crate) struct ConfigFile {
     pub tari_node_url: String,
     pub coinbase_extra: String,
     pub template_refresh_secs: u64,
-    pub use_p2pool: bool,
+    pub p2pool_enabled: bool,
 }
 
 impl Default for ConfigFile {
@@ -18,7 +18,7 @@ impl Default for ConfigFile {
             tari_node_url: "http://127.0.0.1:18142".to_string(),
             coinbase_extra: "tari_gpu_miner".to_string(),
             template_refresh_secs: 30,
-            use_p2pool: false,
+            p2pool_enabled: false,
         }
     }
 }
