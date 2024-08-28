@@ -22,13 +22,17 @@ use tari_core::{
         key_manager::create_memory_db_key_manager, tari_amount::MicroMinotari, transaction_components::RangeProofType,
     },
 };
+use tari_shutdown::Shutdown;
 use tokio::{runtime::Runtime, sync::RwLock};
 
 #[cfg(feature = "nvidia")]
 use crate::cuda_engine::CudaEngine;
+use crate::http::config::Config;
+use crate::http::server::HttpServer;
 use crate::node_client::ClientType;
 #[cfg(feature = "opencl3")]
 use crate::opencl_engine::OpenClEngine;
+use crate::stats_store::StatsStore;
 use crate::{
     config_file::ConfigFile, engine_impl::EngineImpl, function_impl::FunctionImpl, gpu_engine::GpuEngine,
     node_client::NodeClient, tari_coinbase::generate_coinbase,
@@ -41,10 +45,12 @@ mod cuda_engine;
 mod engine_impl;
 mod function_impl;
 mod gpu_engine;
+mod http;
 mod node_client;
 #[cfg(feature = "opencl3")]
 mod opencl_engine;
 mod p2pool_client;
+mod stats_store;
 mod tari_coinbase;
 
 #[tokio::main]
@@ -111,19 +117,32 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
     gpu_engine.init().unwrap();
 
+    // start http server
+    let mut shutdown = Shutdown::new();
+    let stats_store = Arc::new(StatsStore::new());
+    let http_server = HttpServer::new(shutdown.to_signal(), Config::default(), stats_store.clone());
+    tokio::spawn(async move {
+        if let Err(error) = http_server.start().await {
+            println!("Failed to start HTTP server: {error:?}");
+        }
+    });
+
     let num_devices = gpu_engine.num_devices()?;
     let mut threads = vec![];
     for i in 0..num_devices {
         let c = config.clone();
         let gpu = gpu_engine.clone();
+        let curr_stats_store = stats_store.clone();
         threads.push(thread::spawn(move || {
-            run_thread(gpu, num_devices as u64, i as u32, c, benchmark)
+            run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_store)
         }));
     }
 
     for t in threads {
         t.join().unwrap()?;
     }
+
+    shutdown.trigger();
 
     Ok(())
 }
@@ -134,6 +153,7 @@ fn run_thread<T: EngineImpl>(
     thread_index: u32,
     config: ConfigFile,
     benchmark: bool,
+    stats_store: Arc<StatsStore>,
 ) -> Result<(), anyhow::Error> {
     let tari_node_url = config.tari_node_url.clone();
     let runtime = Runtime::new()?;
@@ -222,13 +242,15 @@ fn run_thread<T: EngineImpl>(
             if elapsed.elapsed().as_secs() > 1 {
                 if Instant::now() - last_printed > std::time::Duration::from_secs(2) {
                     last_printed = Instant::now();
+                    let hash_rate = nonce_start / elapsed.elapsed().as_secs();
+                    stats_store.update_hashes_per_second(hash_rate);
                     println!(
                         "total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
                         nonce_start.to_formatted_string(&Locale::en),
                         grid_size,
                         max_diff.to_formatted_string(&Locale::en),
                         target_difficulty.to_formatted_string(&Locale::en),
-                        (nonce_start / elapsed.elapsed().as_secs()).to_formatted_string(&Locale::en)
+                        hash_rate.to_formatted_string(&Locale::en)
                     );
                 }
             }
