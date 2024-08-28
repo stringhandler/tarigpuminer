@@ -120,6 +120,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     // start http server
     let mut shutdown = Shutdown::new();
     let stats_store = Arc::new(StatsStore::new());
+    // TODO: port in config should be configurable from gpuminer's own config
     let http_server = HttpServer::new(shutdown.to_signal(), Config::default(), stats_store.clone());
     tokio::spawn(async move {
         if let Err(error) = http_server.start().await {
