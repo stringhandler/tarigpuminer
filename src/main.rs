@@ -66,16 +66,35 @@ async fn main() {
 
 #[derive(Parser)]
 struct Cli {
+    /// Config file path
     #[arg(short, long, value_name = "FILE")]
     config: Option<PathBuf>,
+
+    /// Do benchmark
     #[arg(short, long)]
     benchmark: bool,
+
+    /// (Optional) Tari wallet address to send rewards to
     #[arg(short = 'a', long)]
     tari_address: Option<String>,
+
+    /// (Optional) Tari base node/p2pool node URL
     #[arg(short = 'u', long)]
     tari_node_url: Option<String>,
+
+    /// P2Pool enabled
     #[arg(long)]
     p2pool_enabled: bool,
+
+    /// Enable/disable http server
+    ///
+    /// It exposes health-check, version and stats endpoints
+    #[arg(long)]
+    http_server_enabled: Option<bool>,
+
+    /// Port of HTTP server
+    #[arg(long)]
+    http_server_port: Option<u16>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -106,6 +125,12 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     if cli.p2pool_enabled {
         config.p2pool_enabled = true;
     }
+    if let Some(enabled) = cli.http_server_enabled {
+        config.http_server_enabled = enabled;
+    }
+    if let Some(port) = cli.http_server_port {
+        config.http_server_port = port;
+    }
 
     let submit = true;
 
@@ -117,17 +142,18 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
     gpu_engine.init().unwrap();
 
-    // start http server
+    // http server
     let mut shutdown = Shutdown::new();
     let stats_store = Arc::new(StatsStore::new());
-    // TODO: port in config should be configurable from gpuminer's own config
-    // TODO: add accepted/rejected blocks
-    let http_server = HttpServer::new(shutdown.to_signal(), Config::default(), stats_store.clone());
-    tokio::spawn(async move {
-        if let Err(error) = http_server.start().await {
-            println!("Failed to start HTTP server: {error:?}");
-        }
-    });
+    if config.http_server_enabled {
+        let http_server_config = Config::new(config.http_server_port);
+        let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_store.clone());
+        tokio::spawn(async move {
+            if let Err(error) = http_server.start().await {
+                println!("Failed to start HTTP server: {error:?}");
+            }
+        });
+    }
 
     let num_devices = gpu_engine.num_devices()?;
     let mut threads = vec![];
@@ -264,9 +290,11 @@ fn run_thread<T: EngineImpl>(
                 let clone_client = node_client.clone();
                 match runtime.block_on(async { clone_client.write().await.submit_block(mined_block).await }) {
                     Ok(_) => {
+                        stats_store.inc_accepted_blocks();
                         println!("Block submitted");
                     },
                     Err(e) => {
+                        stats_store.inc_rejected_blocks();
                         println!("Error submitting block: {:?}", e);
                     },
                 }
