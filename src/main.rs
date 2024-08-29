@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use std::{convert::TryInto, env::current_dir, path::PathBuf, sync::Arc, thread, time::Instant};
 
-use anyhow::{anyhow, Context as AnyContext};
+use anyhow::{anyhow, Context as AnyContext, Error};
 use clap::Parser;
 #[cfg(feature = "nvidia")]
 use cust::{
@@ -9,7 +9,7 @@ use cust::{
     prelude::*,
 };
 use minotari_app_grpc::tari_rpc::{
-    BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput,
+    Block, BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput,
 };
 use num_format::{Locale, ToFormattedString};
 use sha3::Digest;
@@ -220,8 +220,22 @@ fn run_thread<T: EngineImpl>(
         }
         let clone_node_client = node_client.clone();
         let clone_config = config.clone();
-        let (target_difficulty, block, mut header, mining_hash) =
-            runtime.block_on(async move { get_template(clone_config, clone_node_client, rounds, benchmark).await })?;
+        let mut target_difficulty: u64;
+        let mut block: Block;
+        let mut header: BlockHeader;
+        let mut mining_hash: FixedHash;
+        match runtime.block_on(async move { get_template(clone_config, clone_node_client, rounds, benchmark).await }) {
+            Ok((res_target_difficulty, res_block, res_header, res_mining_hash)) => {
+                target_difficulty = res_target_difficulty;
+                block = res_block;
+                header = res_header;
+                mining_hash = res_mining_hash;
+            },
+            Err(error) => {
+                println!("Error during getting next block: {error:?}");
+                continue;
+            },
+        }
 
         let hash64 = copy_u8_to_u64(mining_hash.to_vec());
         data[0] = 0;

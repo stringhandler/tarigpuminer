@@ -1,12 +1,14 @@
+use crate::p2pool_client::P2poolClientWrapper;
 use anyhow::anyhow;
+use minotari_app_grpc::tari_rpc::sha_p2_pool_client::ShaP2PoolClient;
 use minotari_app_grpc::tari_rpc::{
     base_node_client::BaseNodeClient, pow_algo::PowAlgos, Block, Empty, GetNewBlockResult, NewBlockTemplate,
     NewBlockTemplateRequest, NewBlockTemplateResponse, PowAlgo,
 };
+use std::time::Duration;
 use tari_common_types::tari_address::TariAddress;
 use tonic::async_trait;
-
-use crate::p2pool_client::P2poolClientWrapper;
+use tonic::transport::Channel;
 
 pub(crate) struct BaseNodeClientWrapper {
     client: BaseNodeClient<tonic::transport::Channel>,
@@ -15,8 +17,20 @@ pub(crate) struct BaseNodeClientWrapper {
 impl BaseNodeClientWrapper {
     pub async fn connect(url: &str) -> Result<Self, anyhow::Error> {
         println!("Connecting to {}", url);
-        let client = BaseNodeClient::connect(url.to_string()).await?;
-        Ok(Self { client })
+        let mut client: Option<BaseNodeClient<Channel>> = None;
+        while client.is_none() {
+            match BaseNodeClient::connect(url.to_string()).await {
+                Ok(res_client) => client = Some(res_client),
+                Err(error) => {
+                    println!("Failed to connect to base node: {error:?}");
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                },
+            }
+        }
+
+        Ok(Self {
+            client: client.unwrap(),
+        })
     }
 }
 
