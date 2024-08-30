@@ -3,6 +3,7 @@ use minotari_app_grpc::tari_rpc::sha_p2_pool_client::ShaP2PoolClient;
 use minotari_app_grpc::tari_rpc::{
     Block, GetNewBlockRequest, NewBlockTemplate, NewBlockTemplateResponse, SubmitBlockRequest,
 };
+use std::time::Duration;
 use tari_common_types::tari_address::TariAddress;
 use tonic::async_trait;
 use tonic::transport::Channel;
@@ -17,9 +18,19 @@ pub struct P2poolClientWrapper {
 impl P2poolClientWrapper {
     pub async fn connect(url: &str, wallet_payment_address: TariAddress) -> Result<Self, anyhow::Error> {
         println!("Connecting to {}", url);
-        let client = ShaP2PoolClient::connect(url.to_string()).await?;
+        let mut client: Option<ShaP2PoolClient<Channel>> = None;
+        while client.is_none() {
+            match ShaP2PoolClient::connect(url.to_string()).await {
+                Ok(res_client) => client = Some(res_client),
+                Err(error) => {
+                    println!("Failed to connect to p2pool node: {error:?}");
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                },
+            }
+        }
+
         Ok(Self {
-            client,
+            client: client.unwrap(),
             wallet_payment_address,
         })
     }

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use std::{convert::TryInto, env::current_dir, path::PathBuf, sync::Arc, thread, time::Instant};
 
-use anyhow::{anyhow, Context as AnyContext};
+use anyhow::{anyhow, Context as AnyContext, Error};
 use clap::Parser;
 #[cfg(feature = "nvidia")]
 use cust::{
@@ -9,7 +9,7 @@ use cust::{
     prelude::*,
 };
 use minotari_app_grpc::tari_rpc::{
-    BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput,
+    Block, BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput,
 };
 use num_format::{Locale, ToFormattedString};
 use sha3::Digest;
@@ -22,13 +22,17 @@ use tari_core::{
         key_manager::create_memory_db_key_manager, tari_amount::MicroMinotari, transaction_components::RangeProofType,
     },
 };
+use tari_shutdown::Shutdown;
 use tokio::{runtime::Runtime, sync::RwLock};
 
 #[cfg(feature = "nvidia")]
 use crate::cuda_engine::CudaEngine;
+use crate::http::config::Config;
+use crate::http::server::HttpServer;
 use crate::node_client::ClientType;
 #[cfg(feature = "opencl3")]
 use crate::opencl_engine::OpenClEngine;
+use crate::stats_store::StatsStore;
 use crate::{
     config_file::ConfigFile, engine_impl::EngineImpl, function_impl::FunctionImpl, gpu_engine::GpuEngine,
     node_client::NodeClient, tari_coinbase::generate_coinbase,
@@ -41,10 +45,12 @@ mod cuda_engine;
 mod engine_impl;
 mod function_impl;
 mod gpu_engine;
+mod http;
 mod node_client;
 #[cfg(feature = "opencl3")]
 mod opencl_engine;
 mod p2pool_client;
+mod stats_store;
 mod tari_coinbase;
 
 #[tokio::main]
@@ -60,16 +66,35 @@ async fn main() {
 
 #[derive(Parser)]
 struct Cli {
+    /// Config file path
     #[arg(short, long, value_name = "FILE")]
     config: Option<PathBuf>,
+
+    /// Do benchmark
     #[arg(short, long)]
     benchmark: bool,
+
+    /// (Optional) Tari wallet address to send rewards to
     #[arg(short = 'a', long)]
     tari_address: Option<String>,
+
+    /// (Optional) Tari base node/p2pool node URL
     #[arg(short = 'u', long)]
     tari_node_url: Option<String>,
+
+    /// P2Pool enabled
     #[arg(long)]
     p2pool_enabled: bool,
+
+    /// Enable/disable http server
+    ///
+    /// It exposes health-check, version and stats endpoints
+    #[arg(long)]
+    http_server_enabled: Option<bool>,
+
+    /// Port of HTTP server
+    #[arg(long)]
+    http_server_port: Option<u16>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -100,6 +125,12 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     if cli.p2pool_enabled {
         config.p2pool_enabled = true;
     }
+    if let Some(enabled) = cli.http_server_enabled {
+        config.http_server_enabled = enabled;
+    }
+    if let Some(port) = cli.http_server_port {
+        config.http_server_port = port;
+    }
 
     let submit = true;
 
@@ -111,19 +142,35 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
     gpu_engine.init().unwrap();
 
+    // http server
+    let mut shutdown = Shutdown::new();
+    let stats_store = Arc::new(StatsStore::new());
+    if config.http_server_enabled {
+        let http_server_config = Config::new(config.http_server_port);
+        let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_store.clone());
+        tokio::spawn(async move {
+            if let Err(error) = http_server.start().await {
+                println!("Failed to start HTTP server: {error:?}");
+            }
+        });
+    }
+
     let num_devices = gpu_engine.num_devices()?;
     let mut threads = vec![];
     for i in 0..num_devices {
         let c = config.clone();
         let gpu = gpu_engine.clone();
+        let curr_stats_store = stats_store.clone();
         threads.push(thread::spawn(move || {
-            run_thread(gpu, num_devices as u64, i as u32, c, benchmark)
+            run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_store)
         }));
     }
 
     for t in threads {
         t.join().unwrap()?;
     }
+
+    shutdown.trigger();
 
     Ok(())
 }
@@ -134,6 +181,7 @@ fn run_thread<T: EngineImpl>(
     thread_index: u32,
     config: ConfigFile,
     benchmark: bool,
+    stats_store: Arc<StatsStore>,
 ) -> Result<(), anyhow::Error> {
     let tari_node_url = config.tari_node_url.clone();
     let runtime = Runtime::new()?;
@@ -172,8 +220,22 @@ fn run_thread<T: EngineImpl>(
         }
         let clone_node_client = node_client.clone();
         let clone_config = config.clone();
-        let (target_difficulty, block, mut header, mining_hash) =
-            runtime.block_on(async move { get_template(clone_config, clone_node_client, rounds, benchmark).await })?;
+        let mut target_difficulty: u64;
+        let mut block: Block;
+        let mut header: BlockHeader;
+        let mut mining_hash: FixedHash;
+        match runtime.block_on(async move { get_template(clone_config, clone_node_client, rounds, benchmark).await }) {
+            Ok((res_target_difficulty, res_block, res_header, res_mining_hash)) => {
+                target_difficulty = res_target_difficulty;
+                block = res_block;
+                header = res_header;
+                mining_hash = res_mining_hash;
+            },
+            Err(error) => {
+                println!("Error during getting next block: {error:?}");
+                continue;
+            },
+        }
 
         let hash64 = copy_u8_to_u64(mining_hash.to_vec());
         data[0] = 0;
@@ -222,13 +284,15 @@ fn run_thread<T: EngineImpl>(
             if elapsed.elapsed().as_secs() > 1 {
                 if Instant::now() - last_printed > std::time::Duration::from_secs(2) {
                     last_printed = Instant::now();
+                    let hash_rate = nonce_start / elapsed.elapsed().as_secs();
+                    stats_store.update_hashes_per_second(hash_rate);
                     println!(
                         "total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
                         nonce_start.to_formatted_string(&Locale::en),
                         grid_size,
                         max_diff.to_formatted_string(&Locale::en),
                         target_difficulty.to_formatted_string(&Locale::en),
-                        (nonce_start / elapsed.elapsed().as_secs()).to_formatted_string(&Locale::en)
+                        hash_rate.to_formatted_string(&Locale::en)
                     );
                 }
             }
@@ -240,9 +304,11 @@ fn run_thread<T: EngineImpl>(
                 let clone_client = node_client.clone();
                 match runtime.block_on(async { clone_client.write().await.submit_block(mined_block).await }) {
                     Ok(_) => {
+                        stats_store.inc_accepted_blocks();
                         println!("Block submitted");
                     },
                     Err(e) => {
+                        stats_store.inc_rejected_blocks();
                         println!("Error submitting block: {:?}", e);
                     },
                 }

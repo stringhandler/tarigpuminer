@@ -9,6 +9,8 @@ pub(crate) struct ConfigFile {
     pub coinbase_extra: String,
     pub template_refresh_secs: u64,
     pub p2pool_enabled: bool,
+    pub http_server_enabled: bool,
+    pub http_server_port: u16,
 }
 
 impl Default for ConfigFile {
@@ -19,6 +21,8 @@ impl Default for ConfigFile {
             coinbase_extra: "tari_gpu_miner".to_string(),
             template_refresh_secs: 30,
             p2pool_enabled: false,
+            http_server_enabled: true,
+            http_server_port: 18000,
         }
     }
 }
