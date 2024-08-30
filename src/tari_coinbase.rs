@@ -1,5 +1,5 @@
 use rand::rngs::OsRng;
-use tari_common_types::{tari_address::TariAddress, types::PublicKey};
+use tari_common_types::{tari_address::TariAddress, types::PublicKey, MaxSizeBytes};
 use tari_core::{
     consensus::ConsensusConstants,
     one_sided::{
@@ -34,7 +34,7 @@ pub async fn generate_coinbase(
         fee,
         reward,
         height,
-        extra,
+        &MaxSizeBytes::from_bytes_checked(extra).unwrap(),
         key_manager,
         &script_key_id,
         wallet_payment_address,
