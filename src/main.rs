@@ -38,6 +38,7 @@ use crate::{
     config_file::ConfigFile, engine_impl::EngineImpl, function_impl::FunctionImpl, gpu_engine::GpuEngine,
     node_client::NodeClient, tari_coinbase::generate_coinbase,
 };
+use log::{error, info, warn};
 
 mod config_file;
 mod context_impl;
@@ -54,12 +55,16 @@ mod p2pool_client;
 mod stats_store;
 mod tari_coinbase;
 
+const LOG_TARGET: &str = "tari::universe::gpu_miner";//TODO set log target
+
 #[tokio::main]
 async fn main() {
     match main_inner().await {
-        Ok(()) => {},
+        Ok(()) => {
+            info!(target: LOG_TARGET, "Starting gpu_miner");
+        },
         Err(err) => {
-            eprintln!("Error: {:#?}", err);
+            error!(target: LOG_TARGET, "Gpu_miner error: {}", err);
             std::process::exit(1);
         },
     }
@@ -112,9 +117,12 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         path.push("config.json");
         path
     })) {
-        Ok(config) => config,
+        Ok(config) => {
+            info!(target: LOG_TARGET, "Config file loaded successfully");
+            config
+        }
         Err(err) => {
-            eprintln!("Error loading config file: {}. Creating new one", err);
+            error!(target: LOG_TARGET, "Error loading config file: {}. Creating new one", err);
             let default = ConfigFile::default();
             let path = cli.config.unwrap_or_else(|| {
                 let mut path = current_dir().expect("no current directory");
@@ -163,9 +171,11 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     if config.http_server_enabled {
         let http_server_config = Config::new(config.http_server_port);
         let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_store.clone());
+        info!(target: LOG_TARGET, "HTTP server runs on port: {}", http_server_config.port);
         tokio::spawn(async move {
             if let Err(error) = http_server.start().await {
                 println!("Failed to start HTTP server: {error:?}");
+                error!(target: LOG_TARGET, "Failed to start HTTP server: {:?}", error);
             }
         });
     }
@@ -243,6 +253,7 @@ fn run_thread<T: EngineImpl>(
         let mut mining_hash: FixedHash;
         match runtime.block_on(async move { get_template(clone_config, clone_node_client, rounds, benchmark).await }) {
             Ok((res_target_difficulty, res_block, res_header, res_mining_hash)) => {
+                info!(target: LOG_TARGET, "Getting next block...");
                 target_difficulty = res_target_difficulty;
                 block = res_block;
                 header = res_header;
@@ -250,6 +261,7 @@ fn run_thread<T: EngineImpl>(
             },
             Err(error) => {
                 println!("Error during getting next block: {error:?}");
+                error!(target: LOG_TARGET, "Error during getting next block: {:?}", error);
                 continue;
             },
         }
@@ -311,6 +323,13 @@ fn run_thread<T: EngineImpl>(
                         target_difficulty.to_formatted_string(&Locale::en),
                         hash_rate.to_formatted_string(&Locale::en)
                     );
+                    info!(target: LOG_TARGET,                         
+                    "total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
+                    nonce_start.to_formatted_string(&Locale::en),
+                    grid_size,
+                    max_diff.to_formatted_string(&Locale::en),
+                    target_difficulty.to_formatted_string(&Locale::en),
+                    hash_rate.to_formatted_string(&Locale::en));
                 }
             }
             if nonce.is_some() {
@@ -323,10 +342,12 @@ fn run_thread<T: EngineImpl>(
                     Ok(_) => {
                         stats_store.inc_accepted_blocks();
                         println!("Block submitted");
+                        info!(target: LOG_TARGET, "Block submitted");
                     },
                     Err(e) => {
                         stats_store.inc_rejected_blocks();
                         println!("Error submitting block: {:?}", e);
+                        error!(target: LOG_TARGET, "Error submitting block: {:?}", e);
                     },
                 }
                 break;
@@ -343,6 +364,7 @@ async fn get_template(
     benchmark: bool,
 ) -> Result<(u64, minotari_app_grpc::tari_rpc::Block, BlockHeader, FixedHash), anyhow::Error> {
     if benchmark {
+        info!(target: LOG_TARGET, "Getting template with benchmark");
         return Ok((
             u64::MAX,
             minotari_app_grpc::tari_rpc::Block::default(),
@@ -357,28 +379,37 @@ async fn get_template(
     } else {
         TariAddress::from_str(config.tari_address.as_str())?
     };
+    info!(target: LOG_TARGET, "Tari address {}", address.to_string());
     let key_manager = create_memory_db_key_manager()?;
     let consensus_manager = ConsensusManager::builder(Network::NextNet)
-        .build()
-        .expect("Could not build consensus manager");
+    .build()
+    .expect("Could not build consensus manager");
 
-    let mut lock = node_client.write().await;
+let mut lock = node_client.write().await;
 
-    // p2pool enabled
-    if config.p2pool_enabled {
-        let block_result = lock.get_new_block(NewBlockTemplate::default()).await?;
-        let block = block_result.result.block.unwrap();
+// p2pool enabled
+if config.p2pool_enabled {
+    info!(target: LOG_TARGET, "p2pool enabled");
+    let block_result = lock.get_new_block(NewBlockTemplate::default()).await?;
+    let block = block_result.result.block.unwrap();
         let mut header: BlockHeader = block
-            .clone()
-            .header
-            .unwrap()
+        .clone()
+        .header
+        .unwrap()
             .try_into()
             .map_err(|s: String| anyhow!(s))?;
         let mining_hash = header.mining_hash().clone();
+        info!(target: LOG_TARGET,                         
+            "block result target difficulty: {}, block timestamp: {}, mining_hash: {}",
+            block_result.target_difficulty.to_string(),
+            block.clone().header.unwrap().timestamp.to_string(),
+            header.mining_hash().clone().to_string()
+        );
         return Ok((block_result.target_difficulty, block, header, mining_hash));
     }
-
+    
     println!("Getting block template");
+    info!(target: LOG_TARGET, "Getting block template");
     let template = lock.get_block_template().await?;
     let mut block_template = template.new_block_template.clone().unwrap();
     let height = block_template.header.as_ref().unwrap().height;

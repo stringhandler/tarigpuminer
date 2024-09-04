@@ -9,6 +9,9 @@ use std::time::Duration;
 use tari_common_types::tari_address::TariAddress;
 use tonic::async_trait;
 use tonic::transport::Channel;
+use log::{error, info, warn};
+
+const LOG_TARGET: &str = "tari::universe::gpu_miner";//TODO set log target
 
 pub(crate) struct BaseNodeClientWrapper {
     client: BaseNodeClient<tonic::transport::Channel>,
@@ -17,11 +20,16 @@ pub(crate) struct BaseNodeClientWrapper {
 impl BaseNodeClientWrapper {
     pub async fn connect(url: &str) -> Result<Self, anyhow::Error> {
         println!("Connecting to {}", url);
+        info!(target: LOG_TARGET, "Connecting to {}", url);
         let mut client: Option<BaseNodeClient<Channel>> = None;
         while client.is_none() {
             match BaseNodeClient::connect(url.to_string()).await {
-                Ok(res_client) => client = Some(res_client),
+                Ok(res_client) => {
+                    info!(target: LOG_TARGET, "Connected successfully");
+                    client = Some(res_client)
+                } 
                 Err(error) => {
+                    error!(target: LOG_TARGET,"Failed to connect to base node: {:?}", error);
                     println!("Failed to connect to base node: {error:?}");
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 },
@@ -37,35 +45,42 @@ impl BaseNodeClientWrapper {
 #[async_trait]
 impl NodeClient for BaseNodeClientWrapper {
     async fn get_version(&mut self) -> Result<u64, anyhow::Error> {
+        info!(target: LOG_TARGET, "Getting node client version");
         let res = self.client.get_version(tonic::Request::new(Empty {})).await?;
         // dbg!(res);
         Ok(0)
     }
-
+    
     async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, anyhow::Error> {
+        info!(target: LOG_TARGET, "Getting node block template");
         let res = self
-            .client
-            .get_new_block_template(tonic::Request::new({
-                NewBlockTemplateRequest {
-                    max_weight: 0,
+        .client
+        .get_new_block_template(tonic::Request::new({
+            NewBlockTemplateRequest {
+                max_weight: 0,
                     algo: Some(PowAlgo {
                         pow_algo: PowAlgos::Sha3x.into(),
                     }),
                 }
             }))
             .await?;
+        info!(target: LOG_TARGET, "Done getting node block template");
         Ok(res.into_inner())
     }
-
+    
     async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<NewBlockResult, anyhow::Error> {
+        info!(target: LOG_TARGET, "Getting new block template");
         let res = self.client.get_new_block(tonic::Request::new(template)).await?;
+        info!(target: LOG_TARGET, "Done getting new block template");
         Ok(NewBlockResult::try_from(res.into_inner())?)
     }
-
+    
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error> {
+        info!(target: LOG_TARGET, "Submitting block");
         // dbg!(&block);
         let res = self.client.submit_block(tonic::Request::new(block)).await?;
         println!("Block submitted: {:?}", res);
+        info!(target: LOG_TARGET, "Block submitted: {:?}", res);
         Ok(())
     }
 }
@@ -73,15 +88,16 @@ impl NodeClient for BaseNodeClientWrapper {
 #[async_trait]
 pub trait NodeClient {
     async fn get_version(&mut self) -> Result<u64, anyhow::Error>;
-
+    
     async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, anyhow::Error>;
-
+    
     async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<NewBlockResult, anyhow::Error>;
-
+    
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error>;
 }
 
 pub(crate) async fn create_client(client_type: ClientType, url: &str) -> Result<Client, anyhow::Error> {
+    info!(target: LOG_TARGET, "Creating node client: {}", url);
     Ok(match client_type {
         ClientType::BaseNode => Client::BaseNode(BaseNodeClientWrapper::connect(url).await?),
         ClientType::Benchmark => Client::Benchmark(BenchmarkNodeClient {}),
@@ -132,7 +148,7 @@ impl Client {
             Client::P2Pool(client) => client.get_version().await,
         }
     }
-
+    
     pub async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, anyhow::Error> {
         match self {
             Client::BaseNode(client) => client.get_block_template().await,

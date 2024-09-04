@@ -4431,6 +4431,7 @@ dependencies = [
  "clap 4.5.16",
  "cust",
  "libsqlite3-sys",
+ "log",
  "minotari_app_grpc",
  "num-format",
  "opencl-sys",

@@ -36,6 +36,7 @@ opencl3 = { version = "0.9.5", optional = true }
 opencl-sys = "*"
 axum = "0.7.5"
 thiserror = "1.0.63"
+log = "0.4.22"
 
 [features]
 default = []
