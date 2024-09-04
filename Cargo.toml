@@ -1,6 +1,6 @@
 [package]
 name = "xtrgpuminer"
-version = "0.1.7-pre.5"
+version = "0.1.7-pre.8"
 edition = "2021"
 
 

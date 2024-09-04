@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::{cmp, fs};
 use std::{convert::TryInto, env::current_dir, path::PathBuf, sync::Arc, thread, time::Instant};
 
 use anyhow::{anyhow, Context as AnyContext, Error};
@@ -95,6 +96,10 @@ struct Cli {
     /// Port of HTTP server
     #[arg(long)]
     http_server_port: Option<u16>,
+
+    /// GPU percentage
+    #[arg(long)]
+    gpu_percentage: Option<u8>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -102,7 +107,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
     let benchmark = cli.benchmark;
 
-    let mut config = match ConfigFile::load(cli.config.unwrap_or_else(|| {
+    let mut config = match ConfigFile::load(&cli.config.as_ref().cloned().unwrap_or_else(|| {
         let mut path = current_dir().expect("no current directory");
         path.push("config.json");
         path
@@ -111,7 +116,14 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         Err(err) => {
             eprintln!("Error loading config file: {}. Creating new one", err);
             let default = ConfigFile::default();
-            default.save("config.json").expect("Could not save default config");
+            let path = cli.config.unwrap_or_else(|| {
+                let mut path = current_dir().expect("no current directory");
+                path.push("config.json");
+                path
+            });
+            dbg!(&path);
+            fs::create_dir_all(path.parent().expect("no parent"))?;
+            default.save(&path).expect("Could not save default config");
             default
         },
     };
@@ -130,6 +142,9 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     }
     if let Some(port) = cli.http_server_port {
         config.http_server_port = port;
+    }
+    if let Some(percentage) = cli.gpu_percentage {
+        config.gpu_percentage = percentage;
     }
 
     let submit = true;
@@ -202,10 +217,12 @@ fn run_thread<T: EngineImpl>(
 
     let gpu_function = gpu_engine.get_main_function(&context)?;
 
-    let (grid_size, block_size) = gpu_function
+    let (mut grid_size, block_size) = gpu_function
         .suggested_launch_configuration()
         .context("get suggest config")?;
     // let (grid_size, block_size) = (23, 50);
+    grid_size =
+        (grid_size as f64 / 100f64 * cmp::max(cmp::min(100, config.gpu_percentage as usize), 1) as f64).round() as u32;
 
     let output = vec![0u64; 5];
     // let mut output_buf = output.as_slice().as_dbuf()?;

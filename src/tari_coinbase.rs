@@ -9,11 +9,12 @@ use tari_core::{
     transactions::{
         key_manager::{MemoryDbKeyManager, TariKeyId, TransactionKeyManagerBranch, TransactionKeyManagerInterface},
         tari_amount::MicroMinotari,
-        transaction_components::{RangeProofType, Transaction, TransactionKernel, TransactionOutput, WalletOutput},
+        transaction_components::{
+            CoinBaseExtra, RangeProofType, Transaction, TransactionKernel, TransactionOutput, WalletOutput,
+        },
         CoinbaseBuildError, CoinbaseBuilder,
     },
 };
-use tari_core::transactions::transaction_components::CoinBaseExtra;
 use tari_crypto::keys::PublicKey as PK;
 use tari_key_manager::key_manager_service::KeyManagerInterface;
 
@@ -31,12 +32,11 @@ pub async fn generate_coinbase(
     range_proof_type: RangeProofType,
 ) -> Result<(TransactionOutput, TransactionKernel), CoinbaseBuildError> {
     let script_key_id = TariKeyId::default();
-    let coinbase_extra: CoinBaseExtra = CoinBaseExtra::from_bytes_checked(extra).unwrap();
     let (_, coinbase_output, coinbase_kernel, _) = tari_core::transactions::generate_coinbase_with_wallet_output(
         fee,
         reward,
         height,
-        &coinbase_extra,
+        &CoinBaseExtra::from_bytes_checked(extra).unwrap(),
         key_manager,
         &script_key_id,
         wallet_payment_address,
