@@ -1,5 +1,5 @@
 use rand::rngs::OsRng;
-use tari_common_types::{tari_address::TariAddress, types::PublicKey, MaxSizeBytes};
+use tari_common_types::{tari_address::TariAddress, types::PublicKey};
 use tari_core::{
     consensus::ConsensusConstants,
     one_sided::{
@@ -13,6 +13,7 @@ use tari_core::{
         CoinbaseBuildError, CoinbaseBuilder,
     },
 };
+use tari_core::transactions::transaction_components::CoinBaseExtra;
 use tari_crypto::keys::PublicKey as PK;
 use tari_key_manager::key_manager_service::KeyManagerInterface;
 
@@ -30,11 +31,12 @@ pub async fn generate_coinbase(
     range_proof_type: RangeProofType,
 ) -> Result<(TransactionOutput, TransactionKernel), CoinbaseBuildError> {
     let script_key_id = TariKeyId::default();
+    let coinbase_extra: CoinBaseExtra = CoinBaseExtra::from_bytes_checked(extra).unwrap();
     let (_, coinbase_output, coinbase_kernel, _) = tari_core::transactions::generate_coinbase_with_wallet_output(
         fee,
         reward,
         height,
-        &MaxSizeBytes::from_bytes_checked(extra).unwrap(),
+        &coinbase_extra,
         key_manager,
         &script_key_id,
         wallet_payment_address,
