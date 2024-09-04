@@ -48,7 +48,7 @@ impl HttpServer {
     /// Starts the http server on the port passed in ['HttpServer::new']
     pub async fn start(&self) -> Result<(), Error> {
         let router = self.routes();
-        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", self.config.port))
+        let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", self.config.port))
             .await
             .map_err(Error::IO)?;
         println!("Starting HTTP server at http://127.0.0.1:{}", self.config.port);
