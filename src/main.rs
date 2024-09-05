@@ -102,9 +102,9 @@ struct Cli {
     #[arg(long)]
     http_server_port: Option<u16>,
 
-    /// GPU percentage
-    #[arg(long)]
-    gpu_percentage: Option<u8>,
+    /// GPU percentage in values 1-1000, where 500 = 50%
+    #[arg(long, alias = "gpu-usage")]
+    gpu_percentage: Option<u16>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -232,7 +232,7 @@ fn run_thread<T: EngineImpl>(
         .context("get suggest config")?;
     // let (grid_size, block_size) = (23, 50);
     grid_size =
-        (grid_size as f64 / 100f64 * cmp::max(cmp::min(100, config.gpu_percentage as usize), 1) as f64).round() as u32;
+        (grid_size as f64 / 1000f64 * cmp::max(cmp::min(100, config.gpu_percentage as usize), 1) as f64).round() as u32;
 
     let output = vec![0u64; 5];
     // let mut output_buf = output.as_slice().as_dbuf()?;

@@ -42,7 +42,6 @@ impl EngineImpl for OpenClEngine {
     type Function = OpenClFunction;
 
     fn init(&mut self) -> Result<(), anyhow::Error> {
-        dbg!("init");
         info!(target: LOG_TARGET, "OpenClEngine: init engine");
         let platforms = get_platforms()?;
         let mut lock = self.inner.write().unwrap();
@@ -51,7 +50,6 @@ impl EngineImpl for OpenClEngine {
     }
     
     fn num_devices(&self) -> Result<u32, anyhow::Error> {
-        dbg!("num_devices");
         info!(target: LOG_TARGET, "OpenClEngine: num_devices");
         let mut total_devices = 0;
         let lock = self.inner.read().unwrap();
@@ -72,7 +70,6 @@ impl EngineImpl for OpenClEngine {
     }
 
     fn create_context(&self, device_index: u32) -> Result<Self::Context, anyhow::Error> {
-        dbg!("context");
         info!(target: LOG_TARGET, "OpenClEngine: create context");
         let lock = self.inner.write().unwrap();
         let mut devices = vec![];
@@ -85,7 +82,6 @@ impl EngineImpl for OpenClEngine {
     }
     
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {
-        dbg!("create function");
         info!(target: LOG_TARGET, "OpenClEngine: create function");
         let program = create_program_from_source(&context.context).unwrap();
         Ok(OpenClFunction { program })
@@ -150,7 +146,6 @@ impl EngineImpl for OpenClEngine {
             let mut output = vec![0u64, 0u64];
             queue.enqueue_read_buffer(&output_buffer, CL_TRUE, 0, output.as_mut_slice(), &[])?;
             if output[0] > 0 {
-                dbg!(&output);
                 return Ok((
                     Some(output[0]),
                     grid_size * block_size * num_iterations,

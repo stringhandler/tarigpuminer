@@ -1,9 +1,8 @@
 use anyhow::{anyhow, Error};
 use minotari_app_grpc::tari_rpc::sha_p2_pool_client::ShaP2PoolClient;
-use minotari_app_grpc::tari_rpc::{
-    Block, GetNewBlockRequest, NewBlockTemplate, NewBlockTemplateResponse, SubmitBlockRequest,
-};
+use minotari_app_grpc::tari_rpc::{Block, GetNewBlockRequest, NewBlockTemplate, NewBlockTemplateResponse, PowAlgo, SubmitBlockRequest};
 use std::time::Duration;
+use minotari_app_grpc::tari_rpc::pow_algo::PowAlgos;
 use tari_common_types::tari_address::TariAddress;
 use tonic::async_trait;
 use tonic::transport::Channel;
@@ -57,16 +56,19 @@ impl NodeClient for P2poolClientWrapper {
     
     async fn get_new_block(&mut self, _template: NewBlockTemplate) -> Result<NewBlockResult, Error> {
         info!(target: LOG_TARGET, "P2poolClientWrapper: getting new block");
+        let pow_algo = PowAlgo{
+            pow_algo: PowAlgos::Sha3x.into(),
+        };
         let response = self
-        .client
-        .get_new_block(GetNewBlockRequest::default())
-        .await?
-        .into_inner();
-    Ok(NewBlockResult {
-        result: response.block.ok_or(anyhow!("missing block response"))?,
-        target_difficulty: response.target_difficulty,
-    })
-}
+            .client
+            .get_new_block(GetNewBlockRequest{ pow: Some(pow_algo) })
+            .await?
+            .into_inner();
+        Ok(NewBlockResult {
+            result: response.block.ok_or(anyhow!("missing block response"))?,
+            target_difficulty: response.target_difficulty,
+        })
+    }
 
 async fn submit_block(&mut self, block: Block) -> Result<(), Error> {
         info!(target: LOG_TARGET, "P2poolClientWrapper: submitting block");
