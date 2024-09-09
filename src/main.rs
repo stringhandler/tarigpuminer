@@ -105,6 +105,10 @@ struct Cli {
     /// GPU percentage in values 1-1000, where 500 = 50%
     #[arg(long, alias = "gpu-usage")]
     gpu_percentage: Option<u16>,
+
+    /// Coinbase extra data
+    #[arg(long)]
+    coinbase_extra: Option<String>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -153,6 +157,9 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     }
     if let Some(percentage) = cli.gpu_percentage {
         config.gpu_percentage = percentage;
+    }
+    if let Some(coinbase_extra) = cli.coinbase_extra {
+        config.coinbase_extra = coinbase_extra;
     }
 
     let submit = true;
