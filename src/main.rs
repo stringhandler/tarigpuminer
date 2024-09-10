@@ -15,6 +15,7 @@ use minotari_app_grpc::tari_rpc::{
 use num_format::{Locale, ToFormattedString};
 use sha3::Digest;
 use tari_common::configuration::Network;
+use tari_common::initialize_logging;
 use tari_common_types::{tari_address::TariAddress, types::FixedHash};
 use tari_core::{
     blocks::BlockHeader,
@@ -61,7 +62,7 @@ const LOG_TARGET: &str = "tari::universe::gpu_miner"; //TODO set log target
 async fn main() {
     match main_inner().await {
         Ok(()) => {
-            info!(target: LOG_TARGET, "Starting gpu_miner");
+            info!(target: LOG_TARGET, "Starting gpu_miner successfully");
         },
         Err(err) => {
             error!(target: LOG_TARGET, "Gpu_miner error: {}", err);
@@ -105,14 +106,22 @@ struct Cli {
     /// GPU percentage in values 1-1000, where 500 = 50%
     #[arg(long, alias = "gpu-usage")]
     gpu_percentage: Option<u16>,
+
+    /// (Optional) log dir
+    #[arg(short, long, value_name = "log-dir")]
+    log_dir: Option<PathBuf>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
-    log4rs::init_file("../log4rs.yml", Default::default()).unwrap();
     let cli = Cli::parse();
 
-    let benchmark = cli.benchmark;
+    initialize_logging(
+        &cli.config.unwrap(),
+        &cli.log_dir.unwrap(),
+        include_str!("../log4rs.yml"),
+    );
 
+    let benchmark = cli.benchmark;
     let mut config = match ConfigFile::load(&cli.config.as_ref().cloned().unwrap_or_else(|| {
         let mut path = current_dir().expect("no current directory");
         path.push("config.json");
