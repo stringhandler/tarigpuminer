@@ -55,7 +55,7 @@ mod p2pool_client;
 mod stats_store;
 mod tari_coinbase;
 
-const LOG_TARGET: &str = "tari::universe::gpu_miner";//TODO set log target
+const LOG_TARGET: &str = "tari::universe::gpu_miner"; //TODO set log target
 
 #[tokio::main]
 async fn main() {
@@ -108,6 +108,7 @@ struct Cli {
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
+    log4rs::init_file("../log4rs.yml", Default::default()).unwrap();
     let cli = Cli::parse();
 
     let benchmark = cli.benchmark;
@@ -120,7 +121,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         Ok(config) => {
             info!(target: LOG_TARGET, "Config file loaded successfully");
             config
-        }
+        },
         Err(err) => {
             error!(target: LOG_TARGET, "Error loading config file: {}. Creating new one", err);
             let default = ConfigFile::default();
@@ -171,7 +172,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     if config.http_server_enabled {
         let http_server_config = Config::new(config.http_server_port);
         let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_store.clone());
-        info!(target: LOG_TARGET, "HTTP server runs on port: {}", http_server_config.port);
+        info!(target: LOG_TARGET, "HTTP server enabled");
         tokio::spawn(async move {
             if let Err(error) = http_server.start().await {
                 println!("Failed to start HTTP server: {error:?}");
@@ -382,24 +383,24 @@ async fn get_template(
     info!(target: LOG_TARGET, "Tari address {}", address.to_string());
     let key_manager = create_memory_db_key_manager()?;
     let consensus_manager = ConsensusManager::builder(Network::NextNet)
-    .build()
-    .expect("Could not build consensus manager");
+        .build()
+        .expect("Could not build consensus manager");
 
-let mut lock = node_client.write().await;
+    let mut lock = node_client.write().await;
 
-// p2pool enabled
-if config.p2pool_enabled {
-    info!(target: LOG_TARGET, "p2pool enabled");
-    let block_result = lock.get_new_block(NewBlockTemplate::default()).await?;
-    let block = block_result.result.block.unwrap();
+    // p2pool enabled
+    if config.p2pool_enabled {
+        info!(target: LOG_TARGET, "p2pool enabled");
+        let block_result = lock.get_new_block(NewBlockTemplate::default()).await?;
+        let block = block_result.result.block.unwrap();
         let mut header: BlockHeader = block
-        .clone()
-        .header
-        .unwrap()
+            .clone()
+            .header
+            .unwrap()
             .try_into()
             .map_err(|s: String| anyhow!(s))?;
         let mining_hash = header.mining_hash().clone();
-        info!(target: LOG_TARGET,                         
+        info!(target: LOG_TARGET,
             "block result target difficulty: {}, block timestamp: {}, mining_hash: {}",
             block_result.target_difficulty.to_string(),
             block.clone().header.unwrap().timestamp.to_string(),
@@ -407,7 +408,7 @@ if config.p2pool_enabled {
         );
         return Ok((block_result.target_difficulty, block, header, mining_hash));
     }
-    
+
     println!("Getting block template");
     info!(target: LOG_TARGET, "Getting block template");
     let template = lock.get_block_template().await?;
