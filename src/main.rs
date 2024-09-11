@@ -128,15 +128,15 @@ struct Cli {
 async fn main_inner() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
 
-    if cli.log_config_file.is_some() && cli.log_dir.is_some() {
-        if let Err(e) = initialize_logging(
-            &cli.log_config_file.as_ref().cloned().unwrap_or_default(),
-            &cli.log_dir.as_ref().cloned().unwrap_or_default(),
+    if let Some(ref log_dir) = cli.log_dir {
+        
+        tari_common::initialize_logging(
+                &log_dir
+                .join("log4rs_config.yml"),
+            &log_dir.join("xtrgpuminer"),
             include_str!("../log4rs_sample.yml"),
-        ) {
-            eprintln!("Gpu main_inner error: {}", e);
-            return Err(e.into());
-        }
+        )
+        .expect("Could not set up logging");
     }
 
     let benchmark = cli.benchmark;

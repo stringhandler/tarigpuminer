@@ -37,12 +37,3 @@ root:
   appenders:
     - stdout
     - xtrgpuminer
-
-loggers:
-  # Route log events common to every application to all appenders
-  tari::gpuminer:
-    level: info
-    appenders:
-      - stdout
-      - default
-    additive: false
