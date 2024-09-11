@@ -1,15 +1,17 @@
+use crate::node_client::{NewBlockResult, NodeClient};
 use anyhow::{anyhow, Error};
-use minotari_app_grpc::tari_rpc::sha_p2_pool_client::ShaP2PoolClient;
-use minotari_app_grpc::tari_rpc::{Block, GetNewBlockRequest, NewBlockTemplate, NewBlockTemplateResponse, PowAlgo, SubmitBlockRequest};
-use std::time::Duration;
+use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::pow_algo::PowAlgos;
+use minotari_app_grpc::tari_rpc::sha_p2_pool_client::ShaP2PoolClient;
+use minotari_app_grpc::tari_rpc::{
+    Block, GetNewBlockRequest, NewBlockTemplate, NewBlockTemplateResponse, PowAlgo, SubmitBlockRequest,
+};
+use std::time::Duration;
 use tari_common_types::tari_address::TariAddress;
 use tonic::async_trait;
 use tonic::transport::Channel;
-use log::{error, info, warn};
-use crate::node_client::{NewBlockResult, NodeClient};
 
-const LOG_TARGET: &str = "tari::universe::gpu_miner";//TODO set log target
+const LOG_TARGET: &str = "tari::gpuminer::p2pool";
 
 pub struct P2poolClientWrapper {
     client: ShaP2PoolClient<Channel>,
@@ -26,7 +28,7 @@ impl P2poolClientWrapper {
                 Ok(res_client) => {
                     info!(target: LOG_TARGET, "P2poolClientWrapper: connected successfully to p2pool node");
                     client = Some(res_client)
-                } 
+                },
                 Err(error) => {
                     println!("Failed to connect to p2pool node: {error:?}");
                     error!(target: LOG_TARGET, "P2poolClientWrapper: failed to connect to p2pool node: {:?}", error);
@@ -34,7 +36,7 @@ impl P2poolClientWrapper {
                 },
             }
         }
-        
+
         Ok(Self {
             client: client.unwrap(),
             wallet_payment_address,
@@ -48,20 +50,20 @@ impl NodeClient for P2poolClientWrapper {
         info!(target: LOG_TARGET, "P2poolClientWrapper: getting version");
         Ok(0)
     }
-    
+
     async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, Error> {
         warn!(target: LOG_TARGET, "P2poolClientWrapper: getting block template not supported");
         Err(anyhow!("not supported"))
     }
-    
+
     async fn get_new_block(&mut self, _template: NewBlockTemplate) -> Result<NewBlockResult, Error> {
         info!(target: LOG_TARGET, "P2poolClientWrapper: getting new block");
-        let pow_algo = PowAlgo{
+        let pow_algo = PowAlgo {
             pow_algo: PowAlgos::Sha3x.into(),
         };
         let response = self
             .client
-            .get_new_block(GetNewBlockRequest{ pow: Some(pow_algo) })
+            .get_new_block(GetNewBlockRequest { pow: Some(pow_algo) })
             .await?
             .into_inner();
         Ok(NewBlockResult {
@@ -70,7 +72,7 @@ impl NodeClient for P2poolClientWrapper {
         })
     }
 
-async fn submit_block(&mut self, block: Block) -> Result<(), Error> {
+    async fn submit_block(&mut self, block: Block) -> Result<(), Error> {
         info!(target: LOG_TARGET, "P2poolClientWrapper: submitting block");
         self.client
             .submit_block(SubmitBlockRequest {
