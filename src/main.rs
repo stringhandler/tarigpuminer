@@ -238,8 +238,8 @@ fn run_thread<T: EngineImpl>(
         .suggested_launch_configuration()
         .context("get suggest config")?;
     // let (grid_size, block_size) = (23, 50);
-    grid_size =
-        (grid_size as f64 / 1000f64 * cmp::max(cmp::min(100, config.gpu_percentage as usize), 1) as f64).round() as u32;
+    grid_size = (grid_size as f64 / 1000f64 * cmp::max(cmp::min(1000, config.gpu_percentage as usize), 1) as f64)
+        .round() as u32;
 
     let output = vec![0u64; 5];
     // let mut output_buf = output.as_slice().as_dbuf()?;
@@ -284,6 +284,7 @@ fn run_thread<T: EngineImpl>(
         // output_buf.copy_from(&output).expect("Could not copy output to buffer");
 
         let mut nonce_start = (u64::MAX / num_threads) * thread_index as u64;
+        let first_nonce = nonce_start;
         let mut last_hash_rate = 0;
         let elapsed = Instant::now();
         let mut max_diff = 0;
@@ -320,10 +321,11 @@ fn run_thread<T: EngineImpl>(
             if elapsed.elapsed().as_secs() > 1 {
                 if Instant::now() - last_printed > std::time::Duration::from_secs(2) {
                     last_printed = Instant::now();
-                    let hash_rate = nonce_start / elapsed.elapsed().as_secs();
+                    let hash_rate = (nonce_start - first_nonce) / elapsed.elapsed().as_secs();
                     stats_store.update_hashes_per_second(hash_rate);
                     println!(
-                        "total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
+                        "[Thread:{}] total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
+                        thread_index,
                         nonce_start.to_formatted_string(&Locale::en),
                         grid_size,
                         max_diff.to_formatted_string(&Locale::en),
@@ -331,7 +333,8 @@ fn run_thread<T: EngineImpl>(
                         hash_rate.to_formatted_string(&Locale::en)
                     );
                     info!(target: LOG_TARGET,                         
-                    "total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
+                    "[THREAD:{}] total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
+                    thread_index,
                     nonce_start.to_formatted_string(&Locale::en),
                     grid_size,
                     max_diff.to_formatted_string(&Locale::en),
