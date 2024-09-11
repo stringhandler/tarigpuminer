@@ -2,7 +2,7 @@ use std::str::FromStr;
 use std::{cmp, fs};
 use std::{convert::TryInto, env::current_dir, path::PathBuf, sync::Arc, thread, time::Instant};
 
-use anyhow::{anyhow, Context as AnyContext, Error};
+use anyhow::{anyhow, Context as AnyContext};
 use clap::Parser;
 #[cfg(feature = "nvidia")]
 use cust::{
@@ -56,13 +56,14 @@ mod p2pool_client;
 mod stats_store;
 mod tari_coinbase;
 
-const LOG_TARGET: &str = "tari::universe::gpu_miner"; //TODO set log target
+const LOG_TARGET: &str = "tari::gpuminer";
 
 #[tokio::main]
 async fn main() {
     match main_inner().await {
         Ok(()) => {
             info!(target: LOG_TARGET, "Starting gpu_miner successfully");
+            std::process::exit(0);
         },
         Err(err) => {
             error!(target: LOG_TARGET, "Gpu_miner error: {}", err);
@@ -107,19 +108,32 @@ struct Cli {
     #[arg(long, alias = "gpu-usage")]
     gpu_percentage: Option<u16>,
 
+    /// (Optional) log config file
+    #[arg(long, alias = "log-config-file", value_name = "log-config-file")]
+    log_config_file: Option<PathBuf>,
+
     /// (Optional) log dir
-    #[arg(short, long, value_name = "log-dir")]
+    #[arg(long, alias = "log-dir", value_name = "log-dir")]
     log_dir: Option<PathBuf>,
+
+    /// (Optional) log dir
+    #[arg(short = 'd', long, alias = "detect")]
+    detect: Option<bool>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
 
-    initialize_logging(
-        &cli.config.unwrap(),
-        &cli.log_dir.unwrap(),
-        include_str!("../log4rs.yml"),
-    );
+    if cli.log_config_file.is_some() && cli.log_dir.is_some() {
+        if let Err(e) = initialize_logging(
+            &cli.log_config_file.as_ref().cloned().unwrap_or_default(),
+            &cli.log_dir.as_ref().cloned().unwrap_or_default(),
+            include_str!("../log4rs_sample.yml"),
+        ) {
+            eprintln!("Gpu main_inner error: {}", e);
+            return Err(e.into());
+        }
+    }
 
     let benchmark = cli.benchmark;
     let mut config = match ConfigFile::load(&cli.config.as_ref().cloned().unwrap_or_else(|| {
@@ -191,6 +205,22 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     }
 
     let num_devices = gpu_engine.num_devices()?;
+
+    // just create the context to test if it can run
+    if let Some(detect) = cli.detect {
+        let gpu = gpu_engine.clone();
+
+        if num_devices > 0 {
+            if let Err(e) = gpu.create_context(0) {
+                return Err(e.into());
+            }
+        } else {
+            warn!(target: LOG_TARGET, "No gpu device detected");
+            return Err(anyhow::anyhow!("No gpu device detected"));
+        }
+        return Ok(());
+    }
+
     let mut threads = vec![];
     for i in 0..num_devices {
         let c = config.clone();

@@ -1,5 +1,6 @@
 use crate::p2pool_client::P2poolClientWrapper;
 use anyhow::anyhow;
+use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::sha_p2_pool_client::ShaP2PoolClient;
 use minotari_app_grpc::tari_rpc::{
     base_node_client::BaseNodeClient, pow_algo::PowAlgos, Block, Empty, GetNewBlockResult, NewBlockTemplate,
@@ -9,9 +10,8 @@ use std::time::Duration;
 use tari_common_types::tari_address::TariAddress;
 use tonic::async_trait;
 use tonic::transport::Channel;
-use log::{error, info, warn};
 
-const LOG_TARGET: &str = "tari::universe::gpu_miner";//TODO set log target
+const LOG_TARGET: &str = "tari::gpuminer::node-client";
 
 pub(crate) struct BaseNodeClientWrapper {
     client: BaseNodeClient<tonic::transport::Channel>,
@@ -27,7 +27,7 @@ impl BaseNodeClientWrapper {
                 Ok(res_client) => {
                     info!(target: LOG_TARGET, "Connected successfully");
                     client = Some(res_client)
-                } 
+                },
                 Err(error) => {
                     error!(target: LOG_TARGET,"Failed to connect to base node: {:?}", error);
                     println!("Failed to connect to base node: {error:?}");
@@ -50,14 +50,14 @@ impl NodeClient for BaseNodeClientWrapper {
         // dbg!(res);
         Ok(0)
     }
-    
+
     async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, anyhow::Error> {
         info!(target: LOG_TARGET, "Getting node block template");
         let res = self
-        .client
-        .get_new_block_template(tonic::Request::new({
-            NewBlockTemplateRequest {
-                max_weight: 0,
+            .client
+            .get_new_block_template(tonic::Request::new({
+                NewBlockTemplateRequest {
+                    max_weight: 0,
                     algo: Some(PowAlgo {
                         pow_algo: PowAlgos::Sha3x.into(),
                     }),
@@ -67,14 +67,14 @@ impl NodeClient for BaseNodeClientWrapper {
         info!(target: LOG_TARGET, "Done getting node block template");
         Ok(res.into_inner())
     }
-    
+
     async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<NewBlockResult, anyhow::Error> {
         info!(target: LOG_TARGET, "Getting new block template");
         let res = self.client.get_new_block(tonic::Request::new(template)).await?;
         info!(target: LOG_TARGET, "Done getting new block template");
         Ok(NewBlockResult::try_from(res.into_inner())?)
     }
-    
+
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error> {
         info!(target: LOG_TARGET, "Submitting block");
         // dbg!(&block);
@@ -88,11 +88,11 @@ impl NodeClient for BaseNodeClientWrapper {
 #[async_trait]
 pub trait NodeClient {
     async fn get_version(&mut self) -> Result<u64, anyhow::Error>;
-    
+
     async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, anyhow::Error>;
-    
+
     async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<NewBlockResult, anyhow::Error>;
-    
+
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error>;
 }
 
@@ -148,7 +148,7 @@ impl Client {
             Client::P2Pool(client) => client.get_version().await,
         }
     }
-    
+
     pub async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, anyhow::Error> {
         match self {
             Client::BaseNode(client) => client.get_block_template().await,

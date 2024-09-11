@@ -15,7 +15,7 @@ appenders:
         level: info
 
   # An appender named "base_layer" that writes to a file with a custom pattern encoder
-  default:
+  xtrgpuminer:
     kind: rolling_file
     path: "{{log_dir}}/log/xtrgpuminer.log"
     policy:
@@ -36,11 +36,11 @@ root:
   level: info
   appenders:
     - stdout
-    - default
+    - xtrgpuminer
 
 loggers:
   # Route log events common to every application to all appenders
-  gpuminer:
+  tari::gpuminer:
     level: info
     appenders:
       - stdout

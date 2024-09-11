@@ -10,7 +10,9 @@ use cust::{
     prelude::{Module, *},
 };
 
+use log::{error, info, warn};
 use std::time::Instant;
+const LOG_TARGET: &str = "tari::gpuminer::cuda";
 #[derive(Clone)]
 pub struct CudaEngine {}
 
@@ -25,6 +27,7 @@ impl EngineImpl for CudaEngine {
     type Function = CudaFunction;
 
     fn init(&mut self) -> Result<(), anyhow::Error> {
+        info!(target: LOG_TARGET, "Init CUDA Engine");
         cust::init(CudaFlags::empty())?;
         Ok(())
     }
@@ -42,6 +45,7 @@ impl EngineImpl for CudaEngine {
     }
 
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {
+        info!(target: LOG_TARGET, "Create CUDA main function");
         let module = Module::from_ptx(
             include_str!("../cuda/keccak.ptx"),
             &[ModuleJitOption::GenerateLineInfo(true)],
@@ -61,6 +65,7 @@ impl EngineImpl for CudaEngine {
         block_size: u32,
         grid_size: u32,
     ) -> Result<(Option<u64>, u32, u64), Error> {
+        info!(target: LOG_TARGET, "CUDA: start mining");
         let output = vec![0u64; 5];
         let mut output_buf = output.as_slice().as_dbuf()?;
 
