@@ -108,6 +108,10 @@ struct Cli {
     #[arg(long, alias = "gpu-usage")]
     gpu_percentage: Option<u16>,
 
+    /// Coinbase extra data
+    #[arg(long)]
+    coinbase_extra: Option<String>,
+
     /// (Optional) log config file
     #[arg(long, alias = "log-config-file", value_name = "log-config-file")]
     log_config_file: Option<PathBuf>,
@@ -178,6 +182,9 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     if let Some(percentage) = cli.gpu_percentage {
         config.gpu_percentage = percentage;
     }
+    if let Some(coinbase_extra) = cli.coinbase_extra {
+        config.coinbase_extra = coinbase_extra;
+    }
 
     let submit = true;
 
@@ -194,6 +201,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     let stats_store = Arc::new(StatsStore::new());
     if config.http_server_enabled {
         let http_server_config = Config::new(config.http_server_port);
+        info!(target: LOG_TARGET, "HTTP server runs on port: {}", &http_server_config.port);
         let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_store.clone());
         info!(target: LOG_TARGET, "HTTP server enabled");
         tokio::spawn(async move {
