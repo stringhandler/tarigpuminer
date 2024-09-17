@@ -59,12 +59,12 @@ impl EngineImpl for OpenClEngine {
             println!("Devices: ");
             for device in devices {
                 let dev = Device::new(device);
-                info!(target: LOG_TARGET, "Device: {}", dev.name()?);
-                println!("Device: {}", dev.name()?);
                 total_devices += 1;
+                info!(target: LOG_TARGET, "Device nr {:?}: {}", total_devices, dev.name()?);
+                println!("Device nr {:?}: {}", total_devices, dev.name()?);
             }
         }
-        info!(target: LOG_TARGET, "OpenClEngine: num_devices {:?}", total_devices);
+        info!(target: LOG_TARGET, "OpenClEngine: total number of devices {:?}: ", total_devices);
         Ok(total_devices)
     }
 
@@ -82,7 +82,14 @@ impl EngineImpl for OpenClEngine {
 
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {
         info!(target: LOG_TARGET, "OpenClEngine: create function");
-        let program = create_program_from_source(&context.context).unwrap();
+        // let program = create_program_from_source(&context.context).unwrap();
+        let program = match create_program_from_source(&context.context) {
+            Some(program) => program,
+            None => {
+                error!(target: LOG_TARGET, "Failed to create program");
+                return Err(anyhow::Error::msg("Failed to create program"));
+            },
+        };
         Ok(OpenClFunction { program })
     }
 
