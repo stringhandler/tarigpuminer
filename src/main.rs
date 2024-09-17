@@ -123,6 +123,14 @@ struct Cli {
     /// (Optional) log dir
     #[arg(short = 'd', long, alias = "detect")]
     detect: Option<bool>,
+
+    /// (Optional) use only specific devices
+    #[arg(long, alias = "use-devices", num_args=0.., value_delimiter=',')]
+    use_devices: Option<Vec<u32>>,
+
+    /// (Optional) exclude specific devices from use
+    #[arg(long, alias = "exclude-devices", num_args=0.., value_delimiter=',')]
+    exclude_devices: Option<Vec<u32>>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -229,14 +237,35 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         return Err(anyhow::anyhow!("No gpu device detected"));
     }
 
+    // create a list of devices (by index) to use
+    let devices_to_use: Vec<u32> = (0..num_devices)
+    .filter(|x| {
+        if let Some(use_devices) = &cli.use_devices {
+            use_devices.contains(x)
+        } else {
+            true
+        }
+    })
+    .filter(|x| {
+        if let Some(excluded_devices) = &cli.exclude_devices {
+            !excluded_devices.contains(x)
+        } else {
+            true
+        }
+    })
+    .collect();
+
+    info!(target: LOG_TARGET, "Devices to use: {:?}", devices_to_use);
     let mut threads = vec![];
     for i in 0..num_devices {
-        let c = config.clone();
-        let gpu = gpu_engine.clone();
-        let curr_stats_store = stats_store.clone();
-        threads.push(thread::spawn(move || {
-            run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_store)
-        }));
+        if devices_to_use.contains(&i){
+            let c = config.clone();
+            let gpu = gpu_engine.clone();
+            let curr_stats_store = stats_store.clone();
+            threads.push(thread::spawn(move || {
+                run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_store)
+            }));
+        }
     }
 
     // for t in threads {
