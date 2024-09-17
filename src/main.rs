@@ -219,14 +219,14 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         let gpu = gpu_engine.clone();
 
         if num_devices > 0 {
-            if let Err(e) = gpu.create_context(0) {
-                return Err(e.into());
+            for i in 0..num_devices {
+                if let Ok(_) = gpu.create_context(i) {
+                    info!(target: LOG_TARGET, "Gpu detected for device nr: {:?}", i);
+                    return Ok(());
+                } 
             }
-        } else {
-            warn!(target: LOG_TARGET, "No gpu device detected");
-            return Err(anyhow::anyhow!("No gpu device detected"));
         }
-        return Ok(());
+        return Err(anyhow::anyhow!("No gpu device detected"));
     }
 
     let mut threads = vec![];
@@ -239,8 +239,13 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         }));
     }
 
+    // for t in threads {
+    //     t.join().unwrap()?;
+    // }
     for t in threads {
-        t.join().unwrap()?;
+        if let Err(err) = t.join() {
+            error!(target: LOG_TARGET, "Thread join failed: {:?}", err);
+        }
     }
 
     shutdown.trigger();
