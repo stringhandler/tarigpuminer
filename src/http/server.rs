@@ -3,10 +3,12 @@ use crate::http::handlers::{health, stats, version};
 use crate::stats_store::StatsStore;
 use axum::routing::get;
 use axum::Router;
+use log::{error, info};
 use std::sync::Arc;
 use tari_shutdown::ShutdownSignal;
 use thiserror::Error;
 use tokio::io;
+const LOG_TARGET: &str = "tari::gpuminer::httpserver";
 
 /// An HTTP server that provides stats and other useful information.
 pub struct HttpServer {
@@ -47,16 +49,19 @@ impl HttpServer {
 
     /// Starts the http server on the port passed in ['HttpServer::new']
     pub async fn start(&self) -> Result<(), Error> {
+        info!(target: LOG_TARGET, "Http: starts the http server on the port {:?}", self.config.port);
         let router = self.routes();
         let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", self.config.port))
             .await
             .map_err(Error::IO)?;
         println!("Starting HTTP server at http://127.0.0.1:{}", self.config.port);
+        info!(target: LOG_TARGET, "Http: http server is running at http://127.0.0.1:{}", self.config.port);
         axum::serve(listener, router)
             .with_graceful_shutdown(self.shutdown_signal.clone())
             .await
             .map_err(Error::IO)?;
         println!("HTTP server stopped!");
+        info!(target: LOG_TARGET, "HTTP server stopped!");
         Ok(())
     }
 }
