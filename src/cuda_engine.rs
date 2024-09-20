@@ -1,6 +1,5 @@
-use crate::context_impl::ContextImpl;
-use crate::EngineImpl;
-use crate::FunctionImpl;
+use std::time::Instant;
+
 use anyhow::Error;
 #[cfg(feature = "nvidia")]
 use cust::{
@@ -9,9 +8,9 @@ use cust::{
     module::{ModuleJitOption, ModuleJitOption::DetermineTargetFromContext},
     prelude::{Module, *},
 };
-
 use log::{error, info, warn};
-use std::time::Instant;
+
+use crate::{context_impl::ContextImpl, EngineImpl, FunctionImpl};
 const LOG_TARGET: &str = "tari::gpuminer::cuda";
 #[derive(Clone)]
 pub struct CudaEngine {}
@@ -46,10 +45,9 @@ impl EngineImpl for CudaEngine {
 
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {
         info!(target: LOG_TARGET, "Create CUDA main function");
-        let module = Module::from_ptx(
-            include_str!("../cuda/keccak.ptx"),
-            &[ModuleJitOption::GenerateLineInfo(true)],
-        )?;
+        let module = Module::from_ptx(include_str!("../cuda/keccak.ptx"), &[
+            ModuleJitOption::GenerateLineInfo(true),
+        ])?;
         // let func = context.module.get_function("keccakKernel")?;
         Ok(CudaFunction { module })
     }
@@ -108,7 +106,7 @@ impl EngineImpl for CudaEngine {
             unsafe {
                 output_buf.copy_to(&mut out1)?;
             }
-            //stream.synchronize()?;
+            // stream.synchronize()?;
 
             if out1[0] > 0 {
                 return Ok((Some((&out1[0]).clone()), grid_size * block_size * num_iterations, 0));

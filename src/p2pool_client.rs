@@ -1,15 +1,21 @@
-use crate::node_client::{NewBlockResult, NodeClient};
+use std::time::Duration;
+
 use anyhow::{anyhow, Error};
 use log::{error, info, warn};
-use minotari_app_grpc::tari_rpc::pow_algo::PowAlgos;
-use minotari_app_grpc::tari_rpc::sha_p2_pool_client::ShaP2PoolClient;
 use minotari_app_grpc::tari_rpc::{
-    Block, GetNewBlockRequest, NewBlockTemplate, NewBlockTemplateResponse, PowAlgo, SubmitBlockRequest,
+    pow_algo::PowAlgos,
+    sha_p2_pool_client::ShaP2PoolClient,
+    Block,
+    GetNewBlockRequest,
+    NewBlockTemplate,
+    NewBlockTemplateResponse,
+    PowAlgo,
+    SubmitBlockRequest,
 };
-use std::time::Duration;
 use tari_common_types::tari_address::TariAddress;
-use tonic::async_trait;
-use tonic::transport::Channel;
+use tonic::{async_trait, transport::Channel};
+
+use crate::node_client::{NewBlockResult, NodeClient};
 
 const LOG_TARGET: &str = "tari::gpuminer::p2pool";
 
