@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::Error;
+use log::{error, info, warn};
 use opencl3::{
     command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE},
     context::Context,
@@ -15,10 +16,10 @@ use opencl3::{
     program::Program,
     types::{cl_ulong, CL_TRUE},
 };
-use crate::{context_impl::ContextImpl, engine_impl::EngineImpl, function_impl::FunctionImpl};
-use log::{error, info, warn};
 
-const LOG_TARGET: &str = "tari::universe::gpu_miner";//TODO set log target
+use crate::{context_impl::ContextImpl, engine_impl::EngineImpl, function_impl::FunctionImpl};
+
+const LOG_TARGET: &str = "tari::gpuminer::opencl";
 
 pub struct OpenClEngineInner {
     platforms: Vec<Platform>,
@@ -48,16 +49,14 @@ impl EngineImpl for OpenClEngine {
         lock.platforms = platforms;
         Ok(())
     }
-    
+
     fn num_devices(&self) -> Result<u32, anyhow::Error> {
-        info!(target: LOG_TARGET, "OpenClEngine: num_devices");
         let mut total_devices = 0;
         let lock = self.inner.read().unwrap();
         for platform in lock.platforms.iter() {
             let devices = platform.get_devices(CL_DEVICE_TYPE_GPU)?;
             info!(target: LOG_TARGET, "OpenClEngine: platform name: {}", platform.name()?);
             println!("Platform: {}", platform.name()?);
-            info!(target: LOG_TARGET, "OpenClEngine: devices:");
             println!("Devices: ");
             for device in devices {
                 let dev = Device::new(device);
@@ -66,6 +65,7 @@ impl EngineImpl for OpenClEngine {
                 total_devices += 1;
             }
         }
+        info!(target: LOG_TARGET, "OpenClEngine: num_devices {:?}", total_devices);
         Ok(total_devices)
     }
 
@@ -80,7 +80,7 @@ impl EngineImpl for OpenClEngine {
         let context = Context::from_device(&Device::new(device))?;
         Ok(OpenClContext::new(context))
     }
-    
+
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {
         info!(target: LOG_TARGET, "OpenClEngine: create function");
         let program = create_program_from_source(&context.context).unwrap();
@@ -99,8 +99,7 @@ impl EngineImpl for OpenClEngine {
         grid_size: u32,
     ) -> Result<(Option<u64>, u32, u64), Error> {
         // TODO: put in multiple threads
-        info!(target: LOG_TARGET, "OpenClEngine: mine");
-        
+
         let kernels = vec![Kernel::create(&function.program, "sha3").expect("bad kernel")];
 
         //  let queue = CommandQueue::create_default_with_properties(
@@ -159,26 +158,26 @@ impl EngineImpl for OpenClEngine {
 }
 fn create_program_from_source(context: &Context) -> Option<Program> {
     let opencl_code = include_str!("./opencl_sha3.cl");
-    info!(target: LOG_TARGET, "OpenClEngine: create program from source. Opencl code: {}", &opencl_code);
+    info!(target: LOG_TARGET, "OpenClEngine: create program from source");
     // Load the program from file.
     let mut program = match Program::create_from_source(&context, &opencl_code) {
         Ok(program) => {
             info!(target: LOG_TARGET, "OpenClEngine: program created successfully");
             program
-        } 
+        },
         Err(error) => {
             error!(target: LOG_TARGET, "OpenClEngine: program creating error : {}", error);
             println!("Programing creating error : {}", error);
             unimplemented!("");
         },
     };
-    
+
     // Build the program.
     match program.build(context.devices(), "") {
-        Ok(_) =>{
+        Ok(_) => {
             info!(target: LOG_TARGET, "OpenClEngine: program built successfully");
             Some(program)
-        } 
+        },
         Err(error) => {
             error!(target: LOG_TARGET, "OpenClEngine: program building error : {}", error);
             println!("Program building error : {}", error);
@@ -187,11 +186,11 @@ fn create_program_from_source(context: &Context) -> Option<Program> {
                     Ok(log) => {
                         info!(target: LOG_TARGET, "OpenClEngine: program log {}", log);
                         println!("{}", log)
-                    }
+                    },
                     Err(error) => {
                         error!(target: LOG_TARGET, "OpenClEngine: error getting the build log : {}", error);
                         println!("Error getting the build log : {}", error)
-                    } 
+                    },
                 };
             }
             None

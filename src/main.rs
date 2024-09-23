@@ -1,26 +1,30 @@
-use std::str::FromStr;
-use std::{cmp, fs};
-use std::{convert::TryInto, env::current_dir, path::PathBuf, sync::Arc, thread, time::Instant};
+use std::{cmp, convert::TryInto, env::current_dir, fs, path::PathBuf, str::FromStr, sync::Arc, thread, time::Instant};
 
-use anyhow::{anyhow, Context as AnyContext, Error};
+use anyhow::{anyhow, Context as AnyContext};
 use clap::Parser;
 #[cfg(feature = "nvidia")]
 use cust::{
     memory::{AsyncCopyDestination, DeviceCopy},
     prelude::*,
 };
+use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::{
-    Block, BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput,
+    Block,
+    BlockHeader as grpc_header,
+    NewBlockTemplate,
+    TransactionOutput as GrpcTransactionOutput,
 };
 use num_format::{Locale, ToFormattedString};
 use sha3::Digest;
-use tari_common::configuration::Network;
+use tari_common::{configuration::Network, initialize_logging};
 use tari_common_types::{tari_address::TariAddress, types::FixedHash};
 use tari_core::{
     blocks::BlockHeader,
     consensus::ConsensusManager,
     transactions::{
-        key_manager::create_memory_db_key_manager, tari_amount::MicroMinotari, transaction_components::RangeProofType,
+        key_manager::create_memory_db_key_manager,
+        tari_amount::MicroMinotari,
+        transaction_components::RangeProofType,
     },
 };
 use tari_shutdown::Shutdown;
@@ -28,15 +32,17 @@ use tokio::{runtime::Runtime, sync::RwLock};
 
 #[cfg(feature = "nvidia")]
 use crate::cuda_engine::CudaEngine;
-use crate::http::config::Config;
-use crate::http::server::HttpServer;
-use crate::node_client::ClientType;
 #[cfg(feature = "opencl3")]
 use crate::opencl_engine::OpenClEngine;
-use crate::stats_store::StatsStore;
 use crate::{
-    config_file::ConfigFile, engine_impl::EngineImpl, function_impl::FunctionImpl, gpu_engine::GpuEngine,
-    node_client::NodeClient, tari_coinbase::generate_coinbase,
+    config_file::ConfigFile,
+    engine_impl::EngineImpl,
+    function_impl::FunctionImpl,
+    gpu_engine::GpuEngine,
+    http::{config::Config, server::HttpServer},
+    node_client::{ClientType, NodeClient},
+    stats_store::StatsStore,
+    tari_coinbase::generate_coinbase,
 };
 
 use tari_core::transactions::transaction_components::CoinBaseExtra;
@@ -60,6 +66,14 @@ mod tari_coinbase;
 async fn main() {
     match main_inner().await {
         Ok(()) => {},
+const LOG_TARGET: &str = "tari::gpuminer";
+
+async fn main() {
+    match main_inner().await {
+        Ok(()) => {
+            info!(target: LOG_TARGET, "Starting gpu_miner successfully");
+            std::process::exit(0);
+        },
         Err(err) => {
             eprintln!("Error: {:#?}", err);
             std::process::exit(1);
@@ -106,19 +120,45 @@ struct Cli {
     /// grid_size for the gpu
     #[arg(long, alias = "grid-size")]
     grid_size: Option<u32>,
+    /// Coinbase extra data
+    #[arg(long)]
+    coinbase_extra: Option<String>,
+
+    /// (Optional) log config file
+    #[arg(long, alias = "log-config-file", value_name = "log-config-file")]
+    log_config_file: Option<PathBuf>,
+
+    /// (Optional) log dir
+    #[arg(long, alias = "log-dir", value_name = "log-dir")]
+    log_dir: Option<PathBuf>,
+
+    /// (Optional) log dir
+    #[arg(short = 'd', long, alias = "detect")]
+    detect: Option<bool>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
 
-    let benchmark = cli.benchmark;
+    if let Some(ref log_dir) = cli.log_dir {
+        tari_common::initialize_logging(
+            &log_dir.join("log4rs_config.yml"),
+            &log_dir.join("xtrgpuminer"),
+            include_str!("../log4rs_sample.yml"),
+        )
+        .expect("Could not set up logging");
+    }
 
+    let benchmark = cli.benchmark;
     let mut config = match ConfigFile::load(&cli.config.as_ref().cloned().unwrap_or_else(|| {
         let mut path = current_dir().expect("no current directory");
         path.push("config.json");
         path
     })) {
-        Ok(config) => config,
+        Ok(config) => {
+            info!(target: LOG_TARGET, "Config file loaded successfully");
+            config
+        },
         Err(err) => {
             eprintln!("Error loading config file: {}. Creating new one", err);
             let default = ConfigFile::default();
@@ -154,6 +194,8 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     }
     if let Some(gridSize) = cli.grid_size {
         config.grid_size = gridSize;
+    if let Some(coinbase_extra) = cli.coinbase_extra {
+        config.coinbase_extra = coinbase_extra;
     }
 
     let submit = true;
@@ -171,7 +213,9 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     let stats_store = Arc::new(StatsStore::new());
     if config.http_server_enabled {
         let http_server_config = Config::new(config.http_server_port);
+        info!(target: LOG_TARGET, "HTTP server runs on port: {}", &http_server_config.port);
         let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_store.clone());
+        info!(target: LOG_TARGET, "HTTP server enabled");
         tokio::spawn(async move {
             if let Err(error) = http_server.start().await {
                 println!("Failed to start HTTP server: {error:?}");
@@ -180,6 +224,22 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     }
 
     let num_devices = gpu_engine.num_devices()?;
+
+    // just create the context to test if it can run
+    if let Some(detect) = cli.detect {
+        let gpu = gpu_engine.clone();
+
+        if num_devices > 0 {
+            if let Err(e) = gpu.create_context(0) {
+                return Err(e.into());
+            }
+        } else {
+            warn!(target: LOG_TARGET, "No gpu device detected");
+            return Err(anyhow::anyhow!("No gpu device detected"));
+        }
+        return Ok(());
+    }
+
     let mut threads = vec![];
     for i in 0..num_devices {
         let c = config.clone();
@@ -233,6 +293,12 @@ fn run_thread<T: EngineImpl>(
     let (grid_size, block_size) = (config.grid_size, 896);
     //grid_size =
     //    (grid_size as f64 / 1000f64 * cmp::max(cmp::min(100, config.gpu_percentage as usize), 1) as f64).round() as u32;
+    let (mut grid_size, block_size) = gpu_function
+        .suggested_launch_configuration()
+        .context("get suggest config")?;
+    // let (grid_size, block_size) = (23, 50);
+    grid_size = (grid_size as f64 / 1000f64 * cmp::max(cmp::min(1000, config.gpu_percentage as usize), 1) as f64)
+        .round() as u32;
 
     let output = vec![0u64; 5];
     // let mut output_buf = output.as_slice().as_dbuf()?;
@@ -253,6 +319,8 @@ fn run_thread<T: EngineImpl>(
         let mut mining_hash: FixedHash;
         match runtime.block_on(async move { get_template(clone_config, clone_node_client, rounds, benchmark).await }) {
             Ok((res_target_difficulty, res_block, res_header, res_mining_hash)) => {
+                info!(target: LOG_TARGET, "Getting next block...");
+                println!("Getting next block...{}", res_header.height);
                 target_difficulty = res_target_difficulty;
                 block = res_block;
                 header = res_header;
@@ -275,6 +343,7 @@ fn run_thread<T: EngineImpl>(
         // output_buf.copy_from(&output).expect("Could not copy output to buffer");
 
         let mut nonce_start = (u64::MAX / num_threads) * thread_index as u64;
+        let first_nonce = nonce_start;
         let mut last_hash_rate = 0;
         let elapsed = Instant::now();
         let mut max_diff = 0;
@@ -311,16 +380,25 @@ fn run_thread<T: EngineImpl>(
             if elapsed.elapsed().as_secs() > 1 {
                 if Instant::now() - last_printed > std::time::Duration::from_secs(2) {
                     last_printed = Instant::now();
-                    let hash_rate = nonce_start / elapsed.elapsed().as_secs();
+                    let hash_rate = (nonce_start - first_nonce) / elapsed.elapsed().as_secs();
                     stats_store.update_hashes_per_second(hash_rate);
                     println!(
-                        "total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
+                        "[Thread:{}] total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
+                        thread_index,
                         nonce_start.to_formatted_string(&Locale::en),
                         grid_size,
                         max_diff.to_formatted_string(&Locale::en),
                         target_difficulty.to_formatted_string(&Locale::en),
                         hash_rate.to_formatted_string(&Locale::en)
                     );
+                    info!(target: LOG_TARGET,                         
+                    "[THREAD:{}] total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
+                    thread_index,
+                    nonce_start.to_formatted_string(&Locale::en),
+                    grid_size,
+                    max_diff.to_formatted_string(&Locale::en),
+                    target_difficulty.to_formatted_string(&Locale::en),
+                    hash_rate.to_formatted_string(&Locale::en));
                 }
             }
             if nonce.is_some() {
@@ -376,6 +454,7 @@ async fn get_template(
 
     // p2pool enabled
     if config.p2pool_enabled {
+        info!(target: LOG_TARGET, "p2pool enabled");
         let block_result = lock.get_new_block(NewBlockTemplate::default()).await?;
         let block = block_result.result.block.unwrap();
         let mut header: BlockHeader = block
@@ -385,6 +464,12 @@ async fn get_template(
             .try_into()
             .map_err(|s: String| anyhow!(s))?;
         let mining_hash = header.mining_hash().clone();
+        info!(target: LOG_TARGET,
+            "block result target difficulty: {}, block timestamp: {}, mining_hash: {}",
+            block_result.target_difficulty.to_string(),
+            block.clone().header.unwrap().timestamp.to_string(),
+            header.mining_hash().clone().to_string()
+        );
         return Ok((block_result.target_difficulty, block, header, mining_hash));
     }
 
