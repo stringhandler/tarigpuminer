@@ -4,7 +4,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::{context_impl::ContextImpl, engine_impl::EngineImpl, function_impl::FunctionImpl};
 use anyhow::Error;
 use log::{error, info, warn};
 use opencl3::{
@@ -17,6 +16,8 @@ use opencl3::{
     program::Program,
     types::{cl_ulong, CL_TRUE},
 };
+
+use crate::{context_impl::ContextImpl, engine_impl::EngineImpl, function_impl::FunctionImpl};
 
 const LOG_TARGET: &str = "tari::gpuminer::opencl";
 
@@ -105,7 +106,6 @@ impl EngineImpl for OpenClEngine {
         grid_size: u32,
     ) -> Result<(Option<u64>, u32, u64), Error> {
         // TODO: put in multiple threads
-        info!(target: LOG_TARGET, "OpenClEngine: mine");
 
         let kernels = vec![Kernel::create(&function.program, "sha3").expect("bad kernel")];
 

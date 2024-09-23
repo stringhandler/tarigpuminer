@@ -1,6 +1,4 @@
-use std::str::FromStr;
-use std::{cmp, fs};
-use std::{convert::TryInto, env::current_dir, path::PathBuf, sync::Arc, thread, time::Instant};
+use std::{cmp, convert::TryInto, env::current_dir, fs, path::PathBuf, str::FromStr, sync::Arc, thread, time::Instant};
 
 use anyhow::{anyhow, Context as AnyContext};
 use clap::Parser;
@@ -9,19 +7,24 @@ use cust::{
     memory::{AsyncCopyDestination, DeviceCopy},
     prelude::*,
 };
+use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::{
-    Block, BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput,
+    Block,
+    BlockHeader as grpc_header,
+    NewBlockTemplate,
+    TransactionOutput as GrpcTransactionOutput,
 };
 use num_format::{Locale, ToFormattedString};
 use sha3::Digest;
-use tari_common::configuration::Network;
-use tari_common::initialize_logging;
+use tari_common::{configuration::Network, initialize_logging};
 use tari_common_types::{tari_address::TariAddress, types::FixedHash};
 use tari_core::{
     blocks::BlockHeader,
     consensus::ConsensusManager,
     transactions::{
-        key_manager::create_memory_db_key_manager, tari_amount::MicroMinotari, transaction_components::RangeProofType,
+        key_manager::create_memory_db_key_manager,
+        tari_amount::MicroMinotari,
+        transaction_components::RangeProofType,
     },
 };
 use tari_shutdown::Shutdown;
@@ -29,17 +32,18 @@ use tokio::{runtime::Runtime, sync::RwLock};
 
 #[cfg(feature = "nvidia")]
 use crate::cuda_engine::CudaEngine;
-use crate::http::config::Config;
-use crate::http::server::HttpServer;
-use crate::node_client::ClientType;
 #[cfg(feature = "opencl3")]
 use crate::opencl_engine::OpenClEngine;
-use crate::stats_store::StatsStore;
 use crate::{
-    config_file::ConfigFile, engine_impl::EngineImpl, function_impl::FunctionImpl, gpu_engine::GpuEngine,
-    node_client::NodeClient, tari_coinbase::generate_coinbase,
+    config_file::ConfigFile,
+    engine_impl::EngineImpl,
+    function_impl::FunctionImpl,
+    gpu_engine::GpuEngine,
+    http::{config::Config, server::HttpServer},
+    node_client::{ClientType, NodeClient},
+    stats_store::StatsStore,
+    tari_coinbase::generate_coinbase,
 };
-use log::{error, info, warn};
 
 mod config_file;
 mod context_impl;
@@ -336,6 +340,7 @@ fn run_thread<T: EngineImpl>(
         match runtime.block_on(async move { get_template(clone_config, clone_node_client, rounds, benchmark).await }) {
             Ok((res_target_difficulty, res_block, res_header, res_mining_hash)) => {
                 info!(target: LOG_TARGET, "Getting next block...");
+                println!("Getting next block...{}", res_header.height);
                 target_difficulty = res_target_difficulty;
                 block = res_block;
                 header = res_header;
