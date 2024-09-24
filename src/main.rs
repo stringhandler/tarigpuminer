@@ -45,6 +45,8 @@ use crate::{
     tari_coinbase::generate_coinbase,
 };
 
+use tari_core::transactions::transaction_components::CoinBaseExtra;
+
 mod config_file;
 mod context_impl;
 #[cfg(feature = "nvidia")]
@@ -60,9 +62,12 @@ mod p2pool_client;
 mod stats_store;
 mod tari_coinbase;
 
+#[tokio::main]
+async fn main() {
+    match main_inner().await {
+        Ok(()) => {},
 const LOG_TARGET: &str = "tari::gpuminer";
 
-#[tokio::main]
 async fn main() {
     match main_inner().await {
         Ok(()) => {
@@ -70,7 +75,7 @@ async fn main() {
             std::process::exit(0);
         },
         Err(err) => {
-            error!(target: LOG_TARGET, "Gpu_miner error: {}", err);
+            eprintln!("Error: {:#?}", err);
             std::process::exit(1);
         },
     }
@@ -112,6 +117,9 @@ struct Cli {
     #[arg(long, alias = "gpu-usage")]
     gpu_percentage: Option<u16>,
 
+    /// grid_size for the gpu
+    #[arg(long, alias = "grid-size")]
+    grid_size: Option<u32>,
     /// Coinbase extra data
     #[arg(long)]
     coinbase_extra: Option<String>,
@@ -152,7 +160,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
             config
         },
         Err(err) => {
-            error!(target: LOG_TARGET, "Error loading config file: {}. Creating new one", err);
+            eprintln!("Error loading config file: {}. Creating new one", err);
             let default = ConfigFile::default();
             let path = cli.config.unwrap_or_else(|| {
                 let mut path = current_dir().expect("no current directory");
@@ -184,6 +192,8 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     if let Some(percentage) = cli.gpu_percentage {
         config.gpu_percentage = percentage;
     }
+    if let Some(gridSize) = cli.grid_size {
+        config.grid_size = gridSize;
     if let Some(coinbase_extra) = cli.coinbase_extra {
         config.coinbase_extra = coinbase_extra;
     }
@@ -209,7 +219,6 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         tokio::spawn(async move {
             if let Err(error) = http_server.start().await {
                 println!("Failed to start HTTP server: {error:?}");
-                error!(target: LOG_TARGET, "Failed to start HTTP server: {:?}", error);
             }
         });
     }
@@ -277,6 +286,13 @@ fn run_thread<T: EngineImpl>(
 
     let gpu_function = gpu_engine.get_main_function(&context)?;
 
+    //let (mut grid_size, block_size) = gpu_function
+    //    .suggested_launch_configuration()
+    //    .context("get suggest config")?;
+    //let (grid_size, block_size) = (23, 50);
+    let (grid_size, block_size) = (config.grid_size, 896);
+    //grid_size =
+    //    (grid_size as f64 / 1000f64 * cmp::max(cmp::min(100, config.gpu_percentage as usize), 1) as f64).round() as u32;
     let (mut grid_size, block_size) = gpu_function
         .suggested_launch_configuration()
         .context("get suggest config")?;
@@ -312,7 +328,6 @@ fn run_thread<T: EngineImpl>(
             },
             Err(error) => {
                 println!("Error during getting next block: {error:?}");
-                error!(target: LOG_TARGET, "Error during getting next block: {:?}", error);
                 continue;
             },
         }
@@ -396,12 +411,10 @@ fn run_thread<T: EngineImpl>(
                     Ok(_) => {
                         stats_store.inc_accepted_blocks();
                         println!("Block submitted");
-                        info!(target: LOG_TARGET, "Block submitted");
                     },
                     Err(e) => {
                         stats_store.inc_rejected_blocks();
                         println!("Error submitting block: {:?}", e);
-                        error!(target: LOG_TARGET, "Error submitting block: {:?}", e);
                     },
                 }
                 break;
@@ -418,7 +431,6 @@ async fn get_template(
     benchmark: bool,
 ) -> Result<(u64, minotari_app_grpc::tari_rpc::Block, BlockHeader, FixedHash), anyhow::Error> {
     if benchmark {
-        info!(target: LOG_TARGET, "Getting template with benchmark");
         return Ok((
             u64::MAX,
             minotari_app_grpc::tari_rpc::Block::default(),
@@ -433,7 +445,6 @@ async fn get_template(
     } else {
         TariAddress::from_str(config.tari_address.as_str())?
     };
-    info!(target: LOG_TARGET, "Tari address {}", address.to_string());
     let key_manager = create_memory_db_key_manager()?;
     let consensus_manager = ConsensusManager::builder(Network::NextNet)
         .build()
@@ -463,7 +474,6 @@ async fn get_template(
     }
 
     println!("Getting block template");
-    info!(target: LOG_TARGET, "Getting block template");
     let template = lock.get_block_template().await?;
     let mut block_template = template.new_block_template.clone().unwrap();
     let height = block_template.header.as_ref().unwrap().height;
@@ -474,7 +484,8 @@ async fn get_template(
         fee,
         reward,
         height,
-        config.coinbase_extra.as_bytes(),
+        //config.coinbase_extra.as_bytes(),
+        &CoinBaseExtra::try_from(config.coinbase_extra.as_bytes().to_vec())?,
         &key_manager,
         &address,
         true,
