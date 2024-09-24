@@ -104,13 +104,17 @@ pub trait NodeClient {
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error>;
 }
 
-pub(crate) async fn create_client(client_type: ClientType, url: &str) -> Result<Client, anyhow::Error> {
+pub(crate) async fn create_client(
+    client_type: ClientType,
+    url: &str,
+    coinbase_extra: String,
+) -> Result<Client, anyhow::Error> {
     info!(target: LOG_TARGET, "Creating node client: {}", url);
     Ok(match client_type {
         ClientType::BaseNode => Client::BaseNode(BaseNodeClientWrapper::connect(url).await?),
         ClientType::Benchmark => Client::Benchmark(BenchmarkNodeClient {}),
         ClientType::P2Pool(wallet_payment_address) => {
-            Client::P2Pool(P2poolClientWrapper::connect(url, wallet_payment_address).await?)
+            Client::P2Pool(P2poolClientWrapper::connect(url, wallet_payment_address, coinbase_extra).await?)
         },
     })
 }
