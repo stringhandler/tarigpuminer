@@ -3,16 +3,8 @@ use std::time::{Duration, Instant};
 use anyhow::anyhow;
 use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::{
-    base_node_client::BaseNodeClient,
-    pow_algo::PowAlgos,
-    sha_p2_pool_client::ShaP2PoolClient,
-    Block,
-    Empty,
-    GetNewBlockResult,
-    NewBlockTemplate,
-    NewBlockTemplateRequest,
-    NewBlockTemplateResponse,
-    PowAlgo,
+    base_node_client::BaseNodeClient, pow_algo::PowAlgos, sha_p2_pool_client::ShaP2PoolClient, Block, Empty,
+    GetNewBlockResult, NewBlockTemplate, NewBlockTemplateRequest, NewBlockTemplateResponse, PowAlgo,
 };
 use tari_common_types::tari_address::TariAddress;
 use tonic::{async_trait, transport::Channel};
@@ -104,13 +96,17 @@ pub trait NodeClient {
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error>;
 }
 
-pub(crate) async fn create_client(client_type: ClientType, url: &str) -> Result<Client, anyhow::Error> {
+pub(crate) async fn create_client(
+    client_type: ClientType,
+    url: &str,
+    coinbase_extra: String,
+) -> Result<Client, anyhow::Error> {
     info!(target: LOG_TARGET, "Creating node client: {}", url);
     Ok(match client_type {
         ClientType::BaseNode => Client::BaseNode(BaseNodeClientWrapper::connect(url).await?),
         ClientType::Benchmark => Client::Benchmark(BenchmarkNodeClient {}),
         ClientType::P2Pool(wallet_payment_address) => {
-            Client::P2Pool(P2poolClientWrapper::connect(url, wallet_payment_address).await?)
+            Client::P2Pool(P2poolClientWrapper::connect(url, wallet_payment_address, coinbase_extra).await?)
         },
     })
 }

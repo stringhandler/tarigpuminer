@@ -3,14 +3,8 @@ use std::time::Duration;
 use anyhow::{anyhow, Error};
 use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::{
-    pow_algo::PowAlgos,
-    sha_p2_pool_client::ShaP2PoolClient,
-    Block,
-    GetNewBlockRequest,
-    NewBlockTemplate,
-    NewBlockTemplateResponse,
-    PowAlgo,
-    SubmitBlockRequest,
+    pow_algo::PowAlgos, sha_p2_pool_client::ShaP2PoolClient, Block, GetNewBlockRequest, NewBlockTemplate,
+    NewBlockTemplateResponse, PowAlgo, SubmitBlockRequest,
 };
 use tari_common_types::tari_address::TariAddress;
 use tonic::{async_trait, transport::Channel};
@@ -22,10 +16,15 @@ const LOG_TARGET: &str = "tari::gpuminer::p2pool";
 pub struct P2poolClientWrapper {
     client: ShaP2PoolClient<Channel>,
     wallet_payment_address: TariAddress,
+    coinbase_extra: String,
 }
 
 impl P2poolClientWrapper {
-    pub async fn connect(url: &str, wallet_payment_address: TariAddress) -> Result<Self, anyhow::Error> {
+    pub async fn connect(
+        url: &str,
+        wallet_payment_address: TariAddress,
+        coinbase_extra: String,
+    ) -> Result<Self, anyhow::Error> {
         println!("Connecting to {}", url);
         info!(target: LOG_TARGET, "P2poolClientWrapper: connecting to {}", url);
         let mut client: Option<ShaP2PoolClient<Channel>> = None;
@@ -46,6 +45,7 @@ impl P2poolClientWrapper {
         Ok(Self {
             client: client.unwrap(),
             wallet_payment_address,
+            coinbase_extra,
         })
     }
 }
@@ -69,7 +69,11 @@ impl NodeClient for P2poolClientWrapper {
         };
         let response = self
             .client
-            .get_new_block(GetNewBlockRequest { pow: Some(pow_algo) })
+            .get_new_block(GetNewBlockRequest {
+                pow: Some(pow_algo),
+                coinbase_extra: self.coinbase_extra.clone(),
+                wallet_payment_address: self.wallet_payment_address.to_base58(),
+            })
             .await?
             .into_inner();
         Ok(NewBlockResult {

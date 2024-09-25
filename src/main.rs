@@ -9,10 +9,7 @@ use cust::{
 };
 use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::{
-    Block,
-    BlockHeader as grpc_header,
-    NewBlockTemplate,
-    TransactionOutput as GrpcTransactionOutput,
+    Block, BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput,
 };
 use num_format::{Locale, ToFormattedString};
 use sha3::Digest;
@@ -22,9 +19,7 @@ use tari_core::{
     blocks::BlockHeader,
     consensus::ConsensusManager,
     transactions::{
-        key_manager::create_memory_db_key_manager,
-        tari_amount::MicroMinotari,
-        transaction_components::RangeProofType,
+        key_manager::create_memory_db_key_manager, tari_amount::MicroMinotari, transaction_components::RangeProofType,
     },
 };
 use tari_shutdown::Shutdown;
@@ -44,6 +39,8 @@ use crate::{
     stats_store::StatsStore,
     tari_coinbase::generate_coinbase,
 };
+
+use tari_core::transactions::transaction_components::CoinBaseExtra;
 
 mod config_file;
 mod context_impl;
@@ -112,6 +109,9 @@ struct Cli {
     #[arg(long, alias = "gpu-usage")]
     gpu_percentage: Option<u16>,
 
+    /// grid_size for the gpu
+    #[arg(long, alias = "grid-size")]
+    grid_size: Option<u32>,
     /// Coinbase extra data
     #[arg(long)]
     coinbase_extra: Option<String>,
@@ -160,7 +160,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
             config
         },
         Err(err) => {
-            error!(target: LOG_TARGET, "Error loading config file: {}. Creating new one", err);
+            eprintln!("Error loading config file: {}. Creating new one", err);
             let default = ConfigFile::default();
             let path = cli.config.unwrap_or_else(|| {
                 let mut path = current_dir().expect("no current directory");
@@ -191,6 +191,9 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     }
     if let Some(percentage) = cli.gpu_percentage {
         config.gpu_percentage = percentage;
+    }
+    if let Some(grid_size) = cli.grid_size {
+        config.grid_size = grid_size;
     }
     if let Some(coinbase_extra) = cli.coinbase_extra {
         config.coinbase_extra = coinbase_extra;
@@ -303,16 +306,23 @@ fn run_thread<T: EngineImpl>(
     } else {
         ClientType::BaseNode
     };
-    let node_client =
-        Arc::new(RwLock::new(runtime.block_on(async move {
-            node_client::create_client(client_type, &tari_node_url).await
-        })?));
+    let coinbase_extra = config.coinbase_extra.clone();
+    let node_client = Arc::new(RwLock::new(runtime.block_on(async move {
+        node_client::create_client(client_type, &tari_node_url, coinbase_extra).await
+    })?));
     let mut rounds = 0;
 
     let context = gpu_engine.create_context(thread_index)?;
 
     let gpu_function = gpu_engine.get_main_function(&context)?;
 
+    //let (mut grid_size, block_size) = gpu_function
+    //    .suggested_launch_configuration()
+    //    .context("get suggest config")?;
+    //let (grid_size, block_size) = (23, 50);
+    let (grid_size, block_size) = (config.grid_size, 896);
+    //grid_size =
+    //    (grid_size as f64 / 1000f64 * cmp::max(cmp::min(100, config.gpu_percentage as usize), 1) as f64).round() as u32;
     let (mut grid_size, block_size) = gpu_function
         .suggested_launch_configuration()
         .context("get suggest config")?;
@@ -348,7 +358,6 @@ fn run_thread<T: EngineImpl>(
             },
             Err(error) => {
                 println!("Error during getting next block: {error:?}");
-                error!(target: LOG_TARGET, "Error during getting next block: {:?}", error);
                 continue;
             },
         }
@@ -429,8 +438,7 @@ fn run_thread<T: EngineImpl>(
                         target_difficulty.to_formatted_string(&Locale::en),
                         hash_rate.to_formatted_string(&Locale::en)
                     );
-                    info!(target: LOG_TARGET,                         
-                    "[THREAD:{}] total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
+                    info!(target: LOG_TARGET, "[THREAD:{}] total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
                     thread_index,
                     nonce_start.to_formatted_string(&Locale::en),
                     grid_size,
@@ -451,12 +459,10 @@ fn run_thread<T: EngineImpl>(
                     Ok(_) => {
                         stats_store.inc_accepted_blocks();
                         println!("Block submitted");
-                        info!(target: LOG_TARGET, "Block submitted");
                     },
                     Err(e) => {
                         stats_store.inc_rejected_blocks();
                         println!("Error submitting block: {:?}", e);
-                        error!(target: LOG_TARGET, "Error submitting block: {:?}", e);
                     },
                 }
                 info!(target: LOG_TARGET, "Inside thread loop (nonce) break {:?}", num_threads);
@@ -476,7 +482,6 @@ async fn get_template(
 ) -> Result<(u64, minotari_app_grpc::tari_rpc::Block, BlockHeader, FixedHash), anyhow::Error> {
     info!(target: LOG_TARGET, "Getting block template round {:?}", round);
     if benchmark {
-        info!(target: LOG_TARGET, "Getting template with benchmark");
         return Ok((
             u64::MAX,
             minotari_app_grpc::tari_rpc::Block::default(),
@@ -491,7 +496,6 @@ async fn get_template(
     } else {
         TariAddress::from_str(config.tari_address.as_str())?
     };
-    info!(target: LOG_TARGET, "Tari address {}", address.to_string());
     let key_manager = create_memory_db_key_manager()?;
     let consensus_manager = ConsensusManager::builder(Network::NextNet)
         .build()
@@ -531,7 +535,8 @@ async fn get_template(
         fee,
         reward,
         height,
-        config.coinbase_extra.as_bytes(),
+        //config.coinbase_extra.as_bytes(),
+        &CoinBaseExtra::try_from(config.coinbase_extra.as_bytes().to_vec())?,
         &key_manager,
         &address,
         true,
