@@ -66,11 +66,11 @@ const LOG_TARGET: &str = "tari::gpuminer";
 async fn main() {
     match main_inner().await {
         Ok(()) => {
-            info!(target: LOG_TARGET, "Starting gpu_miner successfully");
+            info!(target: LOG_TARGET, "Gpu miner startup process completed successfully");
             std::process::exit(0);
         },
         Err(err) => {
-            error!(target: LOG_TARGET, "Gpu_miner error: {}", err);
+            error!(target: LOG_TARGET, "Gpu miner startup process error: {}", err);
             std::process::exit(1);
         },
     }
@@ -259,7 +259,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         })
         .collect();
 
-    info!(target: LOG_TARGET, "Devices to use: {:?}", devices_to_use);
+    info!(target: LOG_TARGET, "Device indexes to use: {:?} from the total number of devices: {:?}", devices_to_use, num_devices);
     let mut threads = vec![];
     for i in 0..num_devices {
         if devices_to_use.contains(&i) {
