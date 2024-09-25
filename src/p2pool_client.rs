@@ -22,10 +22,15 @@ const LOG_TARGET: &str = "tari::gpuminer::p2pool";
 pub struct P2poolClientWrapper {
     client: ShaP2PoolClient<Channel>,
     wallet_payment_address: TariAddress,
+    coinbase_extra: String,
 }
 
 impl P2poolClientWrapper {
-    pub async fn connect(url: &str, wallet_payment_address: TariAddress) -> Result<Self, anyhow::Error> {
+    pub async fn connect(
+        url: &str,
+        wallet_payment_address: TariAddress,
+        coinbase_extra: String,
+    ) -> Result<Self, anyhow::Error> {
         println!("Connecting to {}", url);
         info!(target: LOG_TARGET, "P2poolClientWrapper: connecting to {}", url);
         let mut client: Option<ShaP2PoolClient<Channel>> = None;
@@ -46,6 +51,7 @@ impl P2poolClientWrapper {
         Ok(Self {
             client: client.unwrap(),
             wallet_payment_address,
+            coinbase_extra,
         })
     }
 }
@@ -69,7 +75,11 @@ impl NodeClient for P2poolClientWrapper {
         };
         let response = self
             .client
-            .get_new_block(GetNewBlockRequest { pow: Some(pow_algo) })
+            .get_new_block(GetNewBlockRequest {
+                pow: Some(pow_algo),
+                coinbase_extra: self.coinbase_extra.clone(),
+                wallet_payment_address: self.wallet_payment_address.to_base58(),
+            })
             .await?
             .into_inner();
         Ok(NewBlockResult {

@@ -276,10 +276,10 @@ fn run_thread<T: EngineImpl>(
     } else {
         ClientType::BaseNode
     };
-    let node_client =
-        Arc::new(RwLock::new(runtime.block_on(async move {
-            node_client::create_client(client_type, &tari_node_url).await
-        })?));
+    let coinbase_extra = config.coinbase_extra.clone();
+    let node_client = Arc::new(RwLock::new(runtime.block_on(async move {
+        node_client::create_client(client_type, &tari_node_url, coinbase_extra).await
+    })?));
     let mut rounds = 0;
 
     let context = gpu_engine.create_context(thread_index)?;
@@ -391,8 +391,7 @@ fn run_thread<T: EngineImpl>(
                         target_difficulty.to_formatted_string(&Locale::en),
                         hash_rate.to_formatted_string(&Locale::en)
                     );
-                    info!(target: LOG_TARGET,                         
-                    "[THREAD:{}] total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
+                    info!(target: LOG_TARGET, "[THREAD:{}] total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
                     thread_index,
                     nonce_start.to_formatted_string(&Locale::en),
                     grid_size,
