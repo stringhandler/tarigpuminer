@@ -3,16 +3,8 @@ use std::time::{Duration, Instant};
 use anyhow::anyhow;
 use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::{
-    base_node_client::BaseNodeClient,
-    pow_algo::PowAlgos,
-    sha_p2_pool_client::ShaP2PoolClient,
-    Block,
-    Empty,
-    GetNewBlockResult,
-    NewBlockTemplate,
-    NewBlockTemplateRequest,
-    NewBlockTemplateResponse,
-    PowAlgo,
+    base_node_client::BaseNodeClient, pow_algo::PowAlgos, sha_p2_pool_client::ShaP2PoolClient, Block, Empty,
+    GetNewBlockResult, NewBlockTemplate, NewBlockTemplateRequest, NewBlockTemplateResponse, PowAlgo,
 };
 use tari_common_types::tari_address::TariAddress;
 use tonic::{async_trait, transport::Channel};
