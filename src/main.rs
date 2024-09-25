@@ -9,10 +9,7 @@ use cust::{
 };
 use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::{
-    Block,
-    BlockHeader as grpc_header,
-    NewBlockTemplate,
-    TransactionOutput as GrpcTransactionOutput,
+    Block, BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput,
 };
 use num_format::{Locale, ToFormattedString};
 use sha3::Digest;
@@ -22,9 +19,7 @@ use tari_core::{
     blocks::BlockHeader,
     consensus::ConsensusManager,
     transactions::{
-        key_manager::create_memory_db_key_manager,
-        tari_amount::MicroMinotari,
-        transaction_components::RangeProofType,
+        key_manager::create_memory_db_key_manager, tari_amount::MicroMinotari, transaction_components::RangeProofType,
     },
 };
 use tari_shutdown::Shutdown;
@@ -62,12 +57,9 @@ mod p2pool_client;
 mod stats_store;
 mod tari_coinbase;
 
-#[tokio::main]
-async fn main() {
-    match main_inner().await {
-        Ok(()) => {},
 const LOG_TARGET: &str = "tari::gpuminer";
 
+#[tokio::main]
 async fn main() {
     match main_inner().await {
         Ok(()) => {
@@ -75,7 +67,7 @@ async fn main() {
             std::process::exit(0);
         },
         Err(err) => {
-            eprintln!("Error: {:#?}", err);
+            error!(target: LOG_TARGET, "Gpu_miner error: {}", err);
             std::process::exit(1);
         },
     }
@@ -192,8 +184,9 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     if let Some(percentage) = cli.gpu_percentage {
         config.gpu_percentage = percentage;
     }
-    if let Some(gridSize) = cli.grid_size {
-        config.grid_size = gridSize;
+    if let Some(grid_size) = cli.grid_size {
+        config.grid_size = grid_size;
+    }
     if let Some(coinbase_extra) = cli.coinbase_extra {
         config.coinbase_extra = coinbase_extra;
     }

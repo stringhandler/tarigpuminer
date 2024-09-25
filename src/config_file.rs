@@ -31,7 +31,7 @@ impl Default for ConfigFile {
             http_server_port: 18000,
             // In range 1-1000
             gpu_percentage: 1000,
-            grid_size: 32
+            grid_size: 32,
         }
     }
 }

@@ -45,9 +45,10 @@ impl EngineImpl for CudaEngine {
 
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {
         info!(target: LOG_TARGET, "Create CUDA main function");
-        let module = Module::from_ptx(include_str!("../cuda/keccak.ptx"), &[
-            ModuleJitOption::GenerateLineInfo(true),
-        ])?;
+        let module = Module::from_ptx(
+            include_str!("../cuda/keccak.ptx"),
+            &[ModuleJitOption::GenerateLineInfo(true)],
+        )?;
         // let func = context.module.get_function("keccakKernel")?;
         Ok(CudaFunction { module })
     }
