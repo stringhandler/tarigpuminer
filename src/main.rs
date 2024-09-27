@@ -235,9 +235,15 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
         if num_devices > 0 {
             for i in 0..num_devices {
-                if let Ok(_) = gpu.create_context(i) {
-                    info!(target: LOG_TARGET, "Gpu detected for device nr: {:?}", i);
-                    return Ok(());
+                match gpu.create_context(i) {
+                    Ok(_) => {
+                        info!(target: LOG_TARGET, "Gpu detected. Created context for device nr: {:?}", i+1);
+                        return Ok(());
+                    },
+                    Err(error) => {
+                        warn!(target: LOG_TARGET, "Failed to create context for gpu device nr: {:?}", i+1);
+                        continue;
+                    },
                 }
             }
         }

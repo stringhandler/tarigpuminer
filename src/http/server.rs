@@ -61,7 +61,7 @@ impl HttpServer {
             .await
             .map_err(Error::IO)?;
         println!("Starting HTTP server at http://127.0.0.1:{}", self.config.port);
-        info!(target: LOG_TARGET, "Http: http server is running at http://127.0.0.1:{}", self.config.port);
+        info!(target: LOG_TARGET, "Http local listener address {:?}", listener.local_addr());
         axum::serve(listener, router)
             .with_graceful_shutdown(self.shutdown_signal.clone())
             .await
