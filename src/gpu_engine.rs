@@ -18,6 +18,10 @@ impl<TEngineImpl: EngineImpl> GpuEngine<TEngineImpl> {
         self.inner.num_devices()
     }
 
+    pub fn list_devices(&self) -> Result<Vec<String>, anyhow::Error> {
+        self.inner.list_devices()
+    }
+
     pub fn create_context(&self, device_index: u32) -> Result<TEngineImpl::Context, anyhow::Error> {
         self.inner.create_context(device_index)
     }

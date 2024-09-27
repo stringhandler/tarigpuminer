@@ -52,6 +52,7 @@ impl EngineImpl for OpenClEngine {
 
     fn num_devices(&self) -> Result<u32, anyhow::Error> {
         let mut total_devices = 0;
+        let mut device_names = vec![];
         let lock = self.inner.read().unwrap();
         for platform in lock.platforms.iter() {
             let devices = platform.get_devices(CL_DEVICE_TYPE_GPU)?;
@@ -60,13 +61,37 @@ impl EngineImpl for OpenClEngine {
             println!("Devices: ");
             for device in devices {
                 let dev = Device::new(device);
+                let name = dev.name().unwrap_or_default() as String;
                 info!(target: LOG_TARGET, "Device: {}", dev.name()?);
                 println!("Device: {}", dev.name()?);
                 total_devices += 1;
+                device_names.push(name);
             }
         }
         info!(target: LOG_TARGET, "OpenClEngine: num_devices {:?}", total_devices);
         Ok(total_devices)
+    }
+
+    fn list_devices(&self) -> Result<Vec<String>, anyhow::Error> {
+        let mut total_devices = 0;
+        let mut device_names = vec![];
+        let lock = self.inner.read().unwrap();
+        for platform in lock.platforms.iter() {
+            let devices = platform.get_devices(CL_DEVICE_TYPE_GPU)?;
+            info!(target: LOG_TARGET, "OpenClEngine: platform name: {}", platform.name()?);
+            println!("Platform: {}", platform.name()?);
+            println!("Devices: ");
+            for device in devices {
+                let dev = Device::new(device);
+                let name = dev.name().unwrap_or_default() as String;
+                info!(target: LOG_TARGET, "Device: {}", dev.name()?);
+                println!("Device: {}", dev.name()?);
+                total_devices += 1;
+                device_names.push(name);
+            }
+        }
+        info!(target: LOG_TARGET, "OpenClEngine: num_devices {:?}", total_devices);
+        Ok(device_names)
     }
 
     fn create_context(&self, device_index: u32) -> Result<Self::Context, anyhow::Error> {

@@ -7,6 +7,8 @@ pub trait EngineImpl {
 
     fn num_devices(&self) -> Result<u32, anyhow::Error>;
 
+    fn list_devices(&self) -> Result<Vec<String>, anyhow::Error>;
+
     fn create_context(&self, device_index: u32) -> Result<Self::Context, anyhow::Error>;
 
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error>;
