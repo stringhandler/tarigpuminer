@@ -132,7 +132,7 @@ struct Cli {
 
     /// Gpu status file path
     #[arg(short, long, value_name = "gpu-status")]
-    gpu_status: Option<PathBuf>,
+    gpu_status_file: Option<PathBuf>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -223,42 +223,28 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     }
 
     let num_devices = gpu_engine.num_devices()?;
-    let device_names = gpu_engine.list_devices()?;
 
     // just create the context to test if it can run
-    if let Some(detect) = cli.detect {
+    if let Some(_detect) = cli.detect {
         let gpu = gpu_engine.clone();
+        let mut is_any_available = false;
 
-        let mut gpu_status = match GpuStatusFile::load(&cli.gpu_status.as_ref().cloned().unwrap_or_else(|| {
-            let mut path = current_dir().expect("no current directory");
-            path.push("gpu_status.json");
-            path
-        })) {
-            Ok(gpu_status) => {
-                info!(target: LOG_TARGET, "Config file loaded successfully");
-                gpu_status
-            },
-            Err(err) => {
-                eprintln!("Error loading gpu_status file: {}. Creating new one", err);
-                let status_file = GpuStatusFile::new(num_devices, device_names);
-                let path = cli.gpu_status.unwrap_or_else(|| {
-                    let mut path = current_dir().expect("no current directory");
-                    path.push("gpu_status.json");
-                    path
-                });
-                dbg!(&path);
-                fs::create_dir_all(path.parent().expect("no parent"))?;
-                status_file.save(&path).expect("Could not save default gpu_status");
-                status_file
+        let mut gpu_devices = match gpu.detect_devices() {
+            Ok(gpu_stats) => gpu_stats,
+            Err(error) => {
+                warn!(target: LOG_TARGET, "No gpu device detected");
+                return Err(anyhow::anyhow!("Gpu detect error: {:?}", error));
             },
         };
-
         if num_devices > 0 {
             for i in 0..num_devices {
                 match gpu.create_context(i) {
                     Ok(_) => {
                         info!(target: LOG_TARGET, "Gpu detected. Created context for device nr: {:?}", i+1);
-                        return Ok(());
+                        if let Some(gpstat) = gpu_devices.get_mut(i as usize) {
+                            gpstat.is_available = true;
+                            is_any_available = true;
+                        }
                     },
                     Err(error) => {
                         warn!(target: LOG_TARGET, "Failed to create context for gpu device nr: {:?}", i+1);
@@ -268,7 +254,36 @@ async fn main_inner() -> Result<(), anyhow::Error> {
             }
         }
 
-        return Err(anyhow::anyhow!("No gpu device detected"));
+        let status_file = GpuStatusFile::new(gpu_devices);
+        let default_path = {
+            let mut path = current_dir().expect("no current directory");
+            path.push("gpu_status.json");
+            path
+        };
+        let path = cli.gpu_status_file.unwrap_or_else(|| default_path.clone());
+
+        let _ = match GpuStatusFile::load(&path) {
+            Ok(_) => {
+                if let Err(err) = status_file.save(&path) {
+                    warn!(target: LOG_TARGET,"Error saving gpu status: {}", err);
+                }
+                status_file
+            },
+            Err(err) => {
+                if let Err(err) = fs::create_dir_all(path.parent().expect("no parent")) {
+                    warn!(target: LOG_TARGET, "Error creating directory: {}", err);
+                }
+                if let Err(err) = status_file.save(&path) {
+                    warn!(target: LOG_TARGET,"Error saving gpu status: {}", err);
+                }
+                status_file
+            },
+        };
+
+        if is_any_available {
+            return Ok(());
+        }
+        return Err(anyhow::anyhow!("No available gpu device detected"));
     }
 
     let mut threads = vec![];

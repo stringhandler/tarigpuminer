@@ -1,4 +1,4 @@
-use crate::engine_impl::EngineImpl;
+use crate::{engine_impl::EngineImpl, gpu_status_file::GpuStatus};
 
 #[derive(Clone)]
 pub struct GpuEngine<TEngineImpl: EngineImpl> {
@@ -18,8 +18,8 @@ impl<TEngineImpl: EngineImpl> GpuEngine<TEngineImpl> {
         self.inner.num_devices()
     }
 
-    pub fn list_devices(&self) -> Result<Vec<String>, anyhow::Error> {
-        self.inner.list_devices()
+    pub fn detect_devices(&self) -> Result<Vec<GpuStatus>, anyhow::Error> {
+        self.inner.detect_devices()
     }
 
     pub fn create_context(&self, device_index: u32) -> Result<TEngineImpl::Context, anyhow::Error> {
