@@ -297,6 +297,26 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         return Err(anyhow::anyhow!("No available gpu device detected"));
     }
 
+    // create a list of devices (by index) to use
+    let devices_to_use: Vec<u32> = (0..num_devices)
+        .filter(|x| {
+            if let Some(use_devices) = &cli.use_devices {
+                use_devices.contains(x)
+            } else {
+                true
+            }
+        })
+        .filter(|x| {
+            if let Some(excluded_devices) = &cli.exclude_devices {
+                !excluded_devices.contains(x)
+            } else {
+                true
+            }
+        })
+        .collect();
+
+    info!(target: LOG_TARGET, "Device indexes to use: {:?} from the total number of devices: {:?}", devices_to_use, num_devices);
+
     let mut threads = vec![];
     for i in 0..num_devices {
         if devices_to_use.contains(&i) {

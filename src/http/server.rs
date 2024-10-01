@@ -14,7 +14,6 @@ use crate::{
     stats_store::StatsStore,
 };
 
-use log::info;
 const LOG_TARGET: &str = "tari::gpuminer::server";
 
 /// An HTTP server that provides stats and other useful information.
