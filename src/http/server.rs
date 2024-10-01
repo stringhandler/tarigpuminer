@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::{routing::get, Router};
+use log::{error, info};
 use tari_shutdown::ShutdownSignal;
 use thiserror::Error;
 use tokio::io;
@@ -13,7 +14,6 @@ use crate::{
     stats_store::StatsStore,
 };
 
-use log::info;
 const LOG_TARGET: &str = "tari::gpuminer::server";
 
 /// An HTTP server that provides stats and other useful information.
@@ -55,6 +55,7 @@ impl HttpServer {
 
     /// Starts the http server on the port passed in ['HttpServer::new']
     pub async fn start(&self) -> Result<(), Error> {
+        info!(target: LOG_TARGET, "Http: starts the http server on the port {:?}", self.config.port);
         let router = self.routes();
         let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", self.config.port))
             .await
@@ -67,6 +68,7 @@ impl HttpServer {
             .await
             .map_err(Error::IO)?;
         println!("HTTP server stopped!");
+        info!(target: LOG_TARGET, "HTTP server stopped!");
         Ok(())
     }
 }

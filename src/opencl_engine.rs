@@ -83,6 +83,8 @@ impl EngineImpl for OpenClEngine {
                 };
                 gpu_devices.push(gpu);
                 total_devices += 1;
+                info!(target: LOG_TARGET, "Device nr {:?}: {}", total_devices, dev.name()?);
+                println!("Device nr {:?}: {}", total_devices, dev.name()?);
             }
         }
         if total_devices > 0 {
@@ -105,7 +107,14 @@ impl EngineImpl for OpenClEngine {
 
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {
         info!(target: LOG_TARGET, "OpenClEngine: create function");
-        let program = create_program_from_source(&context.context).unwrap();
+        // let program = create_program_from_source(&context.context).unwrap();
+        let program = match create_program_from_source(&context.context) {
+            Some(program) => program,
+            None => {
+                error!(target: LOG_TARGET, "Failed to create program");
+                return Err(anyhow::Error::msg("Failed to create program"));
+            },
+        };
         Ok(OpenClFunction { program })
     }
 
@@ -130,8 +139,11 @@ impl EngineImpl for OpenClEngine {
         //     0
         // )?;
         unsafe {
+            info!(target: LOG_TARGET, "OpenClEngine: mine unsafe");
             let queue = CommandQueue::create_default(&context.context, CL_QUEUE_PROFILING_ENABLE)
                 .expect("could not create command queue");
+
+            info!(target: LOG_TARGET, "OpenClEngine: created queue");
 
             let batch_size = 1 << 19; // According to tests, but we can try work this out
             let global_dimensions = [batch_size as usize];
@@ -140,14 +152,39 @@ impl EngineImpl for OpenClEngine {
             // let max_work_items = queue.max_work_item_dimensions();
             // dbg!(max_work_items);
             // dbg!("here");
+            info!(target: LOG_TARGET, "OpenClEngine: cmax workgroups {:?}", max_workgroups);
+
             let mut buffer =
-                Buffer::<cl_ulong>::create(&context.context, CL_MEM_READ_ONLY, data.len(), ptr::null_mut())?;
-            queue.enqueue_write_buffer(&mut buffer, CL_TRUE, 0, data, &[])?;
-            let output_buffer = Buffer::<cl_ulong>::create(&context.context, CL_MEM_WRITE_ONLY, 2, ptr::null_mut())?;
+                match Buffer::<cl_ulong>::create(&context.context, CL_MEM_READ_ONLY, data.len(), ptr::null_mut()) {
+                    Ok(buffer) => buffer,
+                    Err(e) => {
+                        error!(target: LOG_TARGET, "OpenClEngine: failed to create buffer: {}", e);
+                        return Err(e.into());
+                    },
+                };
+            match queue.enqueue_write_buffer(&mut buffer, CL_TRUE, 0, data, &[]) {
+                Ok(_) => info!(target: LOG_TARGET, "OpenClEngine: buffer created"),
+                Err(e) => {
+                    error!(target: LOG_TARGET, "OpenClEngine: failed to enqueue write buffer: {}", e);
+                    return Err(e.into());
+                },
+            };
+
+            info!(target: LOG_TARGET, "OpenClEngine: buffer created",);
+            let output_buffer =
+                match Buffer::<cl_ulong>::create(&context.context, CL_MEM_WRITE_ONLY, 2, ptr::null_mut()) {
+                    Ok(buffer) => buffer,
+                    Err(e) => {
+                        error!(target: LOG_TARGET, "OpenClEngine: failed to create output buffer: {}", e);
+                        return Err(e.into());
+                    },
+                };
             // dbg!(block_size);
             // dbg!(grid_size);
+            info!(target: LOG_TARGET, "OpenClEngine: output buffer created",);
+            info!(target: LOG_TARGET, "OpenClEngine: kernel work_size: g:{:?}",(grid_size * block_size) as usize);
             for kernel in kernels {
-                ExecuteKernel::new(&kernel)
+                match ExecuteKernel::new(&kernel)
             .set_arg(&buffer)
             .set_arg(&nonce_start)
             .set_arg(&min_difficulty)
@@ -155,16 +192,34 @@ impl EngineImpl for OpenClEngine {
             .set_arg(&output_buffer)
 
             .set_global_work_size((grid_size * block_size) as usize)
-            // .set_local_work_size(max_workgroups)
+            .set_local_work_size((grid_size * block_size / 2) as usize)
             // .set_wait_event(&y_write_event)
-            .enqueue_nd_range(&queue).expect("culd not queue");
+            .enqueue_nd_range(&queue)
+                {
+                    Ok(_) => info!(target: LOG_TARGET, "Kernel enqueued successfully"),
+                    Err(e) => {
+                        error!(target: LOG_TARGET, "Failed to enqueue kernel: {}", e);
+                        // TODO
+                        // if e == opencl3::Error::OutOfResources {
+                        //     error!(target: LOG_TARGET, "CL_OUT_OF_RESOURCES: insufficient resources");
+                        //     // TODO Handle the error accordingly
+                        // }
+                    },
+                }
+                // .expect("could not queue")
+                // .map_err(|e| {
+                //     error!(target: LOG_TARGET, "OpenClEngine: failed to enqueue kernel: {}", e);
+                //     e
+                // });
 
                 // TODO: find out better workdim
                 // queue.enqueue_nd_range_kernel(kernel.get(), 1, 0 as *const usize, global_dimensions.as_ptr(), 0 as
                 // *const usize, &[]).expect("could not execute");
             }
             queue.finish()?;
+
             let mut output = vec![0u64, 0u64];
+            info!(target: LOG_TARGET, "OpenClEngine: mine output {:?}", output[0] > 0);
             queue.enqueue_read_buffer(&output_buffer, CL_TRUE, 0, output.as_mut_slice(), &[])?;
             if output[0] > 0 {
                 return Ok((
@@ -173,8 +228,10 @@ impl EngineImpl for OpenClEngine {
                     u64::MAX / output[1],
                 ));
             }
+            info!(target: LOG_TARGET, "OpenClEngine: mine unsafe return ok");
             return Ok((None, grid_size * block_size * num_iterations, u64::MAX / output[1]));
         }
+        info!(target: LOG_TARGET, "OpenClEngine: mine return ok");
         Ok((None, grid_size * block_size * num_iterations, 0))
     }
 }

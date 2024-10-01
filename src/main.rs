@@ -65,11 +65,11 @@ const LOG_TARGET: &str = "tari::gpuminer";
 async fn main() {
     match main_inner().await {
         Ok(()) => {
-            info!(target: LOG_TARGET, "Starting gpu_miner successfully");
+            info!(target: LOG_TARGET, "Gpu miner startup process completed successfully");
             std::process::exit(0);
         },
         Err(err) => {
-            error!(target: LOG_TARGET, "Gpu_miner error: {}", err);
+            error!(target: LOG_TARGET, "Gpu miner startup process error: {}", err);
             std::process::exit(1);
         },
     }
@@ -130,6 +130,14 @@ struct Cli {
     #[arg(short = 'd', long, alias = "detect")]
     detect: Option<bool>,
 
+    /// (Optional) use only specific devices
+    #[arg(long, alias = "use-devices", num_args=0.., value_delimiter=',')]
+    use_devices: Option<Vec<u32>>,
+
+    /// (Optional) exclude specific devices from use
+    #[arg(long, alias = "exclude-devices", num_args=0.., value_delimiter=',')]
+    exclude_devices: Option<Vec<u32>>,
+
     /// Gpu status file path
     #[arg(short, long, value_name = "gpu-status")]
     gpu_status_file: Option<PathBuf>,
@@ -137,7 +145,7 @@ struct Cli {
 
 async fn main_inner() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
-
+    info!(target: LOG_TARGET, "Xtrgpuminer init");
     if let Some(ref log_dir) = cli.log_dir {
         tari_common::initialize_logging(
             &log_dir.join("log4rs_config.yml"),
@@ -218,6 +226,9 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         tokio::spawn(async move {
             if let Err(error) = http_server.start().await {
                 println!("Failed to start HTTP server: {error:?}");
+                error!(target: LOG_TARGET, "Failed to start HTTP server: {:?}", error);
+            } else {
+                info!(target: LOG_TARGET, "Success to start HTTP server");
             }
         });
     }
@@ -286,18 +297,45 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         return Err(anyhow::anyhow!("No available gpu device detected"));
     }
 
+    // create a list of devices (by index) to use
+    let devices_to_use: Vec<u32> = (0..num_devices)
+        .filter(|x| {
+            if let Some(use_devices) = &cli.use_devices {
+                use_devices.contains(x)
+            } else {
+                true
+            }
+        })
+        .filter(|x| {
+            if let Some(excluded_devices) = &cli.exclude_devices {
+                !excluded_devices.contains(x)
+            } else {
+                true
+            }
+        })
+        .collect();
+
+    info!(target: LOG_TARGET, "Device indexes to use: {:?} from the total number of devices: {:?}", devices_to_use, num_devices);
+
     let mut threads = vec![];
     for i in 0..num_devices {
-        let c = config.clone();
-        let gpu = gpu_engine.clone();
-        let curr_stats_store = stats_store.clone();
-        threads.push(thread::spawn(move || {
-            run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_store)
-        }));
+        if devices_to_use.contains(&i) {
+            let c = config.clone();
+            let gpu = gpu_engine.clone();
+            let curr_stats_store = stats_store.clone();
+            threads.push(thread::spawn(move || {
+                run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_store)
+            }));
+        }
     }
 
+    // for t in threads {
+    //     t.join().unwrap()?;
+    // }
     for t in threads {
-        t.join().unwrap()?;
+        if let Err(err) = t.join() {
+            error!(target: LOG_TARGET, "Thread join failed: {:?}", err);
+        }
     }
 
     shutdown.trigger();
@@ -395,11 +433,13 @@ fn run_thread<T: EngineImpl>(
         let mut max_diff = 0;
         let mut last_printed = Instant::now();
         loop {
+            info!(target: LOG_TARGET, "Inside loop");
             if elapsed.elapsed().as_secs() > config.template_refresh_secs {
+                info!(target: LOG_TARGET, "Elapsed {:?} > {:?}", elapsed.elapsed().as_secs(), config.template_refresh_secs );
                 break;
             }
             let num_iterations = 16;
-            let (nonce, hashes, diff) = gpu_engine.mine(
+            let result = gpu_engine.mine(
                 &gpu_function,
                 &context,
                 &data,
@@ -415,7 +455,20 @@ fn run_thread<T: EngineImpl>(
                             * grid_size,
                             * data_buf.as_device_ptr(),
                             * &output_buf, */
-            )?;
+            );
+            let (nonce, hashes, diff) = match result {
+                Ok(values) => {
+                    info!(target: LOG_TARGET,
+                        "Mining successful: nonce={:?}, hashes={}, difficulty={}",
+                        values.0, values.1, values.2
+                    );
+                    (values.0, values.1, values.2)
+                },
+                Err(e) => {
+                    error!(target: LOG_TARGET, "Mining failed: {}", e);
+                    return Err(e.into());
+                },
+            };
             if let Some(ref n) = nonce {
                 header.nonce = *n;
             }
@@ -423,7 +476,9 @@ fn run_thread<T: EngineImpl>(
                 max_diff = diff;
             }
             nonce_start = nonce_start + hashes as u64;
+            info!(target: LOG_TARGET, "Nonce start {:?}", nonce_start.to_formatted_string(&Locale::en));
             if elapsed.elapsed().as_secs() > 1 {
+                info!(target: LOG_TARGET, "Elapsed {:?} > 1",elapsed.elapsed().as_secs());
                 if Instant::now() - last_printed > std::time::Duration::from_secs(2) {
                     last_printed = Instant::now();
                     let hash_rate = (nonce_start - first_nonce) / elapsed.elapsed().as_secs();
@@ -446,7 +501,9 @@ fn run_thread<T: EngineImpl>(
                     hash_rate.to_formatted_string(&Locale::en));
                 }
             }
+            info!(target: LOG_TARGET, "Inside loop nonce {:?}", nonce.clone().is_some());
             if nonce.is_some() {
+                info!(target: LOG_TARGET, "Inside loop nonce is some {:?}", nonce.clone().is_some());
                 header.nonce = nonce.unwrap();
 
                 let mut mined_block = block.clone();
@@ -462,8 +519,10 @@ fn run_thread<T: EngineImpl>(
                         println!("Error submitting block: {:?}", e);
                     },
                 }
+                info!(target: LOG_TARGET, "Inside thread loop (nonce) break {:?}", num_threads);
                 break;
             }
+            info!(target: LOG_TARGET, "Inside thread loop break {:?}", num_threads);
             // break;
         }
     }
@@ -475,6 +534,7 @@ async fn get_template(
     round: u32,
     benchmark: bool,
 ) -> Result<(u64, minotari_app_grpc::tari_rpc::Block, BlockHeader, FixedHash), anyhow::Error> {
+    info!(target: LOG_TARGET, "Getting block template round {:?}", round);
     if benchmark {
         return Ok((
             u64::MAX,
@@ -538,6 +598,7 @@ async fn get_template(
         RangeProofType::RevealedValue,
     )
     .await?;
+    info!(target: LOG_TARGET, "Getting block template difficulty {:?}", miner_data.target_difficulty.clone());
     let body = block_template.body.as_mut().expect("no block body");
     let grpc_output = GrpcTransactionOutput::try_from(coinbase_output.clone()).map_err(|s| anyhow!(s))?;
     body.outputs.push(grpc_output);
