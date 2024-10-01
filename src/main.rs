@@ -34,6 +34,7 @@ use crate::{
     engine_impl::EngineImpl,
     function_impl::FunctionImpl,
     gpu_engine::GpuEngine,
+    gpu_status_file::GpuStatusFile,
     http::{config::Config, server::HttpServer},
     node_client::{ClientType, NodeClient},
     stats_store::StatsStore,
@@ -49,6 +50,7 @@ mod cuda_engine;
 mod engine_impl;
 mod function_impl;
 mod gpu_engine;
+mod gpu_status_file;
 mod http;
 mod node_client;
 #[cfg(feature = "opencl3")]
@@ -135,6 +137,10 @@ struct Cli {
     /// (Optional) exclude specific devices from use
     #[arg(long, alias = "exclude-devices", num_args=0.., value_delimiter=',')]
     exclude_devices: Option<Vec<u32>>,
+
+    /// Gpu status file path
+    #[arg(short, long, value_name = "gpu-status")]
+    gpu_status_file: Option<PathBuf>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -230,15 +236,26 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     let num_devices = gpu_engine.num_devices()?;
 
     // just create the context to test if it can run
-    if let Some(detect) = cli.detect {
+    if let Some(_detect) = cli.detect {
         let gpu = gpu_engine.clone();
+        let mut is_any_available = false;
 
+        let mut gpu_devices = match gpu.detect_devices() {
+            Ok(gpu_stats) => gpu_stats,
+            Err(error) => {
+                warn!(target: LOG_TARGET, "No gpu device detected");
+                return Err(anyhow::anyhow!("Gpu detect error: {:?}", error));
+            },
+        };
         if num_devices > 0 {
             for i in 0..num_devices {
                 match gpu.create_context(i) {
                     Ok(_) => {
                         info!(target: LOG_TARGET, "Gpu detected. Created context for device nr: {:?}", i+1);
-                        return Ok(());
+                        if let Some(gpstat) = gpu_devices.get_mut(i as usize) {
+                            gpstat.is_available = true;
+                            is_any_available = true;
+                        }
                     },
                     Err(error) => {
                         warn!(target: LOG_TARGET, "Failed to create context for gpu device nr: {:?}", i+1);
@@ -247,28 +264,39 @@ async fn main_inner() -> Result<(), anyhow::Error> {
                 }
             }
         }
-        return Err(anyhow::anyhow!("No gpu device detected"));
+
+        let status_file = GpuStatusFile::new(gpu_devices);
+        let default_path = {
+            let mut path = current_dir().expect("no current directory");
+            path.push("gpu_status.json");
+            path
+        };
+        let path = cli.gpu_status_file.unwrap_or_else(|| default_path.clone());
+
+        let _ = match GpuStatusFile::load(&path) {
+            Ok(_) => {
+                if let Err(err) = status_file.save(&path) {
+                    warn!(target: LOG_TARGET,"Error saving gpu status: {}", err);
+                }
+                status_file
+            },
+            Err(err) => {
+                if let Err(err) = fs::create_dir_all(path.parent().expect("no parent")) {
+                    warn!(target: LOG_TARGET, "Error creating directory: {}", err);
+                }
+                if let Err(err) = status_file.save(&path) {
+                    warn!(target: LOG_TARGET,"Error saving gpu status: {}", err);
+                }
+                status_file
+            },
+        };
+
+        if is_any_available {
+            return Ok(());
+        }
+        return Err(anyhow::anyhow!("No available gpu device detected"));
     }
 
-    // create a list of devices (by index) to use
-    let devices_to_use: Vec<u32> = (0..num_devices)
-        .filter(|x| {
-            if let Some(use_devices) = &cli.use_devices {
-                use_devices.contains(x)
-            } else {
-                true
-            }
-        })
-        .filter(|x| {
-            if let Some(excluded_devices) = &cli.exclude_devices {
-                !excluded_devices.contains(x)
-            } else {
-                true
-            }
-        })
-        .collect();
-
-    info!(target: LOG_TARGET, "Device indexes to use: {:?} from the total number of devices: {:?}", devices_to_use, num_devices);
     let mut threads = vec![];
     for i in 0..num_devices {
         if devices_to_use.contains(&i) {
