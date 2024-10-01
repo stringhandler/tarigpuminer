@@ -34,6 +34,7 @@ use crate::{
     engine_impl::EngineImpl,
     function_impl::FunctionImpl,
     gpu_engine::GpuEngine,
+    gpu_status_file::GpuStatusFile,
     http::{config::Config, server::HttpServer},
     node_client::{ClientType, NodeClient},
     stats_store::StatsStore,
@@ -49,6 +50,7 @@ mod cuda_engine;
 mod engine_impl;
 mod function_impl;
 mod gpu_engine;
+mod gpu_status_file;
 mod http;
 mod node_client;
 #[cfg(feature = "opencl3")]
@@ -127,6 +129,10 @@ struct Cli {
     /// (Optional) log dir
     #[arg(short = 'd', long, alias = "detect")]
     detect: Option<bool>,
+
+    /// Gpu status file path
+    #[arg(short, long, value_name = "gpu-status")]
+    gpu_status_file: Option<PathBuf>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -219,18 +225,65 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     let num_devices = gpu_engine.num_devices()?;
 
     // just create the context to test if it can run
-    if let Some(detect) = cli.detect {
+    if let Some(_detect) = cli.detect {
         let gpu = gpu_engine.clone();
+        let mut is_any_available = false;
 
+        let mut gpu_devices = match gpu.detect_devices() {
+            Ok(gpu_stats) => gpu_stats,
+            Err(error) => {
+                warn!(target: LOG_TARGET, "No gpu device detected");
+                return Err(anyhow::anyhow!("Gpu detect error: {:?}", error));
+            },
+        };
         if num_devices > 0 {
-            if let Err(e) = gpu.create_context(0) {
-                return Err(e.into());
+            for i in 0..num_devices {
+                match gpu.create_context(i) {
+                    Ok(_) => {
+                        info!(target: LOG_TARGET, "Gpu detected. Created context for device nr: {:?}", i+1);
+                        if let Some(gpstat) = gpu_devices.get_mut(i as usize) {
+                            gpstat.is_available = true;
+                            is_any_available = true;
+                        }
+                    },
+                    Err(error) => {
+                        warn!(target: LOG_TARGET, "Failed to create context for gpu device nr: {:?}", i+1);
+                        continue;
+                    },
+                }
             }
-        } else {
-            warn!(target: LOG_TARGET, "No gpu device detected");
-            return Err(anyhow::anyhow!("No gpu device detected"));
         }
-        return Ok(());
+
+        let status_file = GpuStatusFile::new(gpu_devices);
+        let default_path = {
+            let mut path = current_dir().expect("no current directory");
+            path.push("gpu_status.json");
+            path
+        };
+        let path = cli.gpu_status_file.unwrap_or_else(|| default_path.clone());
+
+        let _ = match GpuStatusFile::load(&path) {
+            Ok(_) => {
+                if let Err(err) = status_file.save(&path) {
+                    warn!(target: LOG_TARGET,"Error saving gpu status: {}", err);
+                }
+                status_file
+            },
+            Err(err) => {
+                if let Err(err) = fs::create_dir_all(path.parent().expect("no parent")) {
+                    warn!(target: LOG_TARGET, "Error creating directory: {}", err);
+                }
+                if let Err(err) = status_file.save(&path) {
+                    warn!(target: LOG_TARGET,"Error saving gpu status: {}", err);
+                }
+                status_file
+            },
+        };
+
+        if is_any_available {
+            return Ok(());
+        }
+        return Err(anyhow::anyhow!("No available gpu device detected"));
     }
 
     let mut threads = vec![];

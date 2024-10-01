@@ -17,7 +17,9 @@ use opencl3::{
     types::{cl_ulong, CL_TRUE},
 };
 
-use crate::{context_impl::ContextImpl, engine_impl::EngineImpl, function_impl::FunctionImpl};
+use crate::{
+    context_impl::ContextImpl, engine_impl::EngineImpl, function_impl::FunctionImpl, gpu_status_file::GpuStatus,
+};
 
 const LOG_TARGET: &str = "tari::gpuminer::opencl";
 
@@ -55,18 +57,38 @@ impl EngineImpl for OpenClEngine {
         let lock = self.inner.read().unwrap();
         for platform in lock.platforms.iter() {
             let devices = platform.get_devices(CL_DEVICE_TYPE_GPU)?;
+            total_devices += devices.len();
+        }
+        info!(target: LOG_TARGET, "OpenClEngine: total number of devices {:?}", total_devices);
+        Ok(total_devices as u32)
+    }
+
+    fn detect_devices(&self) -> Result<Vec<GpuStatus>, anyhow::Error> {
+        let mut total_devices = 0;
+        let mut gpu_devices: Vec<GpuStatus> = vec![];
+        let lock = self.inner.read().unwrap();
+        for platform in lock.platforms.iter() {
+            let devices = platform.get_devices(CL_DEVICE_TYPE_GPU)?;
+
             info!(target: LOG_TARGET, "OpenClEngine: platform name: {}", platform.name()?);
-            println!("Platform: {}", platform.name()?);
-            println!("Devices: ");
+            println!("List of the devices for the Platform: {}", platform.name()?);
             for device in devices {
                 let dev = Device::new(device);
-                info!(target: LOG_TARGET, "Device: {}", dev.name()?);
-                println!("Device: {}", dev.name()?);
+                let name = dev.name().unwrap_or_default() as String;
+                info!(target: LOG_TARGET, "Device index {:?}: {}", total_devices, &name);
+                println!("device: {}", &name);
+                let mut gpu = GpuStatus {
+                    device_name: name,
+                    is_available: true,
+                };
+                gpu_devices.push(gpu);
                 total_devices += 1;
             }
         }
-        info!(target: LOG_TARGET, "OpenClEngine: num_devices {:?}", total_devices);
-        Ok(total_devices)
+        if total_devices > 0 {
+            return Ok(gpu_devices);
+        }
+        return Err(anyhow::anyhow!("No gpu device detected"));
     }
 
     fn create_context(&self, device_index: u32) -> Result<Self::Context, anyhow::Error> {
