@@ -1,8 +1,7 @@
-use crate::http::server::AppState;
-use axum::extract::State;
-use axum::http::StatusCode;
-use axum::Json;
+use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
+
+use crate::http::server::AppState;
 
 #[derive(Serialize, Deserialize)]
 pub struct Stats {

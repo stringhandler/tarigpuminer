@@ -15,7 +15,8 @@ pub(crate) struct ConfigFile {
     pub p2pool_enabled: bool,
     pub http_server_enabled: bool,
     pub http_server_port: u16,
-    pub gpu_percentage: u8,
+    pub gpu_percentage: u16,
+    pub grid_size: u32,
 }
 
 impl Default for ConfigFile {
@@ -28,7 +29,9 @@ impl Default for ConfigFile {
             p2pool_enabled: false,
             http_server_enabled: true,
             http_server_port: 18000,
-            gpu_percentage: 100,
+            // In range 1-1000
+            gpu_percentage: 1000,
+            grid_size: 32,
         }
     }
 }

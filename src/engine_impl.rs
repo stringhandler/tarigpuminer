@@ -1,4 +1,4 @@
-use crate::{context_impl::ContextImpl, function_impl::FunctionImpl};
+use crate::{context_impl::ContextImpl, function_impl::FunctionImpl, gpu_status_file::GpuStatus};
 
 pub trait EngineImpl {
     type Context: ContextImpl;
@@ -6,6 +6,8 @@ pub trait EngineImpl {
     fn init(&mut self) -> Result<(), anyhow::Error>;
 
     fn num_devices(&self) -> Result<u32, anyhow::Error>;
+
+    fn detect_devices(&self) -> Result<Vec<GpuStatus>, anyhow::Error>;
 
     fn create_context(&self, device_index: u32) -> Result<Self::Context, anyhow::Error>;
 

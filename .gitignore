@@ -4,3 +4,5 @@ config.json
 # Ignore OS files
 .DS_Store
 .idea/
+.vscode/*
+!.vscode/extensions.json
