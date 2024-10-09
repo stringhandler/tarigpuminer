@@ -17,12 +17,14 @@ pub(crate) struct ConfigFile {
     pub http_server_port: u16,
     pub gpu_percentage: u16,
     pub grid_size: u32,
+    pub template_timeout_secs: u64,
 }
 
 impl Default for ConfigFile {
     fn default() -> Self {
         Self {
-            tari_address: "8c98d40f216589d8b385015222b95fb5327fee334352c7c30370101b0c6d124fd6".to_string(),
+            tari_address: "f2CWXg4GRNXweuDknxLATNjeX8GyJyQp9GbVG8f81q63hC7eLJ4ZR8cDd9HBcVTjzoHYUtzWZFM3yrZ68btM2wiY7sj"
+                .to_string(),
             tari_node_url: "http://127.0.0.1:18142".to_string(),
             coinbase_extra: "tari_gpu_miner".to_string(),
             template_refresh_secs: 30,
@@ -31,7 +33,8 @@ impl Default for ConfigFile {
             http_server_port: 18000,
             // In range 1-1000
             gpu_percentage: 1000,
-            grid_size: 32,
+            grid_size: 1000,
+            template_timeout_secs: 5,
         }
     }
 }

@@ -141,6 +141,9 @@ struct Cli {
     /// Gpu status file path
     #[arg(short, long, value_name = "gpu-status")]
     gpu_status_file: Option<PathBuf>,
+
+    #[arg(short, long)]
+    template_timeout_secs: Option<u64>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -203,6 +206,10 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     }
     if let Some(coinbase_extra) = cli.coinbase_extra {
         config.coinbase_extra = coinbase_extra;
+    }
+
+    if let Some(template_timeout) = cli.template_timeout_secs {
+        config.template_timeout_secs = template_timeout;
     }
 
     let submit = true;
@@ -374,12 +381,12 @@ fn run_thread<T: EngineImpl>(
     //    .suggested_launch_configuration()
     //    .context("get suggest config")?;
     //let (grid_size, block_size) = (23, 50);
-    let (grid_size, block_size) = (config.grid_size, 896);
+    let (mut grid_size, block_size) = (config.grid_size, 896);
     //grid_size =
     //    (grid_size as f64 / 1000f64 * cmp::max(cmp::min(100, config.gpu_percentage as usize), 1) as f64).round() as u32;
-    let (mut grid_size, block_size) = gpu_function
-        .suggested_launch_configuration()
-        .context("get suggest config")?;
+    // let (mut grid_size, block_size) = gpu_function
+    //     .suggested_launch_configuration()
+    //     .context("get suggest config")?;
     // let (grid_size, block_size) = (23, 50);
     grid_size = (grid_size as f64 / 1000f64 * cmp::max(cmp::min(1000, config.gpu_percentage as usize), 1) as f64)
         .round() as u32;
@@ -509,7 +516,14 @@ fn run_thread<T: EngineImpl>(
                 let mut mined_block = block.clone();
                 mined_block.header = Some(grpc_header::from(header));
                 let clone_client = node_client.clone();
-                match runtime.block_on(async { clone_client.write().await.submit_block(mined_block).await }) {
+                match runtime.block_on(async {
+                    let mut client = clone_client.write().await;
+                    tokio::time::timeout(
+                        std::time::Duration::from_secs(config.template_timeout_secs),
+                        client.submit_block(mined_block),
+                    )
+                    .await?
+                }) {
                     Ok(_) => {
                         stats_store.inc_accepted_blocks();
                         println!("Block submitted");
@@ -560,7 +574,11 @@ async fn get_template(
     // p2pool enabled
     if config.p2pool_enabled {
         info!(target: LOG_TARGET, "p2pool enabled");
-        let block_result = lock.get_new_block(NewBlockTemplate::default()).await?;
+        let block_result = tokio::time::timeout(
+            std::time::Duration::from_secs(config.template_timeout_secs),
+            lock.get_new_block(NewBlockTemplate::default()),
+        )
+        .await??;
         let block = block_result.result.block.unwrap();
         let mut header: BlockHeader = block
             .clone()
@@ -579,7 +597,11 @@ async fn get_template(
     }
 
     println!("Getting block template");
-    let template = lock.get_block_template().await?;
+    let template = tokio::time::timeout(
+        std::time::Duration::from_secs(config.template_timeout_secs),
+        lock.get_block_template(),
+    )
+    .await??;
     let mut block_template = template.new_block_template.clone().unwrap();
     let height = block_template.header.as_ref().unwrap().height;
     let miner_data = template.miner_data.unwrap();

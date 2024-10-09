@@ -192,7 +192,7 @@ impl EngineImpl for OpenClEngine {
             .set_arg(&output_buffer)
 
             .set_global_work_size((grid_size * block_size) as usize)
-            .set_local_work_size((grid_size * block_size / 2) as usize)
+            // .set_local_work_size((grid_size * block_size / 2) as usize)
             // .set_wait_event(&y_write_event)
             .enqueue_nd_range(&queue)
                 {
@@ -229,6 +229,9 @@ impl EngineImpl for OpenClEngine {
                 ));
             }
             info!(target: LOG_TARGET, "OpenClEngine: mine unsafe return ok");
+            // if output[1] == 0 {
+            //     return Ok((None, grid_size * block_size * num_iterations, 0));
+            // }
             return Ok((None, grid_size * block_size * num_iterations, u64::MAX / output[1]));
         }
         info!(target: LOG_TARGET, "OpenClEngine: mine return ok");
