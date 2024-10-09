@@ -1,5 +1,4 @@
-use std::time::Instant;
-
+use crate::gpu_status_file::GpuStatus;
 use anyhow::Error;
 #[cfg(feature = "nvidia")]
 use cust::{
@@ -9,6 +8,7 @@ use cust::{
     prelude::{Module, *},
 };
 use log::{error, info, warn};
+use std::time::Instant;
 
 use crate::{context_impl::ContextImpl, EngineImpl, FunctionImpl};
 const LOG_TARGET: &str = "tari::gpuminer::cuda";
@@ -34,6 +34,24 @@ impl EngineImpl for CudaEngine {
     fn num_devices(&self) -> Result<u32, anyhow::Error> {
         let num_devices = Device::num_devices()?;
         Ok(num_devices)
+    }
+
+    fn detect_devices(&self) -> Result<Vec<GpuStatus>, anyhow::Error> {
+        let num_devices = Device::num_devices()?;
+        let mut devices = Vec::with_capacity(num_devices as usize);
+        for i in 0..num_devices {
+            let device = Device::get_device(i)?;
+            let name = device.name()?;
+            let gpu = GpuStatus {
+                device_name: name,
+                is_available: true,
+            };
+            devices.push(gpu);
+        }
+        if devices.len() > 0 {
+            return Ok(devices);
+        }
+        return Err(anyhow::anyhow!("No gpu device detected"));
     }
 
     fn create_context(&self, device_index: u32) -> Result<Self::Context, anyhow::Error> {
