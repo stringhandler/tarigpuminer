@@ -1,0 +1,59 @@
+[build.env]
+passthrough = [
+  "CFLAGS",
+  "TARGET",
+  "RUST_TARGET",
+  "BUILD_TARGET",
+  "CARGO_BUILD_TARGET",
+  "TARGET_CFLAGS",
+  "CC_aarch64_unknown_linux_gnu",
+  "CC_riscv64_unknown_linux_gnu",
+  "PKG_CONFIG_SYSROOT_DIR",
+  "PKG_CONFIG_ALLOW_CROSS",
+  "RUSTFLAGS",
+  "RUST_BACKTRACE",
+  "RUST_DEBUG",
+  "RUST_LOG",
+  "ARCH",
+  "FEATURES",
+  "ROARING_ARCH",
+  "TARI_NETWORK",
+  "TARI_TARGET_NETWORK",
+  "TARI_NETWORK_DIR",
+]
+
+[target.aarch64-unknown-linux-gnu]
+#image.toolchain = ["linux/arm64=aarch64-unknown-linux-gnu", "linux/amd64=x86_64-unknown-linux-gnu"]
+pre-build = [
+  "dpkg --add-architecture $CROSS_DEB_ARCH",
+  "apt-get update && apt-get --assume-yes install libprotobuf-dev protobuf-compiler opencl-headers ocl-icd-opencl-dev:$CROSS_DEB_ARCH"
+]
+
+[target.aarch64-unknown-linux-gnu.env]
+passthrough = [
+  "PKG_CONFIG_ALLOW_CROSS=true",
+]
+
+[target.x86_64-unknown-linux-gnu]
+#image.toolchain = ["linux/arm64=aarch64-unknown-linux-gnu", "linux/amd64=x86_64-unknown-linux-gnu"]
+pre-build = [
+  "dpkg --add-architecture $CROSS_DEB_ARCH",
+  "apt-get update && apt-get --assume-yes install libprotobuf-dev protobuf-compiler opencl-headers ocl-icd-opencl-dev:$CROSS_DEB_ARCH"
+]
+
+[target.x86_64-unknown-linux-gnu.env]
+passthrough = [
+  "PKG_CONFIG_ALLOW_CROSS=true",
+]
+
+[target.riscv64gc-unknown-linux-gnu]
+#image.toolchain = ["linux/arm64=aarch64-unknown-linux-gnu", "linux/amd64=x86_64-unknown-linux-gnu", "linux/riscv64=riscv64gc-unknown-linux-gnu"]
+pre-build = [
+  "dpkg --add-architecture $CROSS_DEB_ARCH",
+  "apt-get update && apt-get --assume-yes install libprotobuf-dev protobuf-compiler opencl-headers ocl-icd-opencl-dev:$CROSS_DEB_ARCH"
+]
+
+[target.riscv64gc-unknown-linux-gnu.env]
+passthrough = [
+  "PKG_CONFIG_ALLOW_CROSS=true",
+]

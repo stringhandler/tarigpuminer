@@ -249,13 +249,31 @@ jobs:
             --target ${{ matrix.builds.target }} \
             --features "${{ matrix.builds.features }}" \
             ${{ matrix.builds.flags }} \
-            --bin xtrgpuminer
+            --bin ${{ env.TS_FILENAME }}
 
       - name: Build release binaries
         if: ${{ false }}
         shell: bash
         run: |
           ls -alhtR target/${{ matrix.builds.target }}/${{ env.TS_BUILD }}/
+
+      - name: Sign Windows files with Trusted Certificate
+        if: ${{ ( startsWith(runner.os,'Windows') ) && ( env.AZURE_TENANT_ID != '' ) }}
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        uses: azure/trusted-signing-action@v0.4.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: https://eus.codesigning.azure.net/
+          trusted-signing-account-name: Tari
+          certificate-profile-name: Tarilabs
+          files-folder: ${{ github.workspace }}/target/${{ matrix.builds.target }}/${{ env.TS_BUILD }}/
+          files-folder-filter: exe,dll
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
 
       - name: Archive and Checksum Binaries
         shell: bash
@@ -265,7 +283,7 @@ jobs:
           cd "$GITHUB_WORKSPACE/DIST"
           echo "Copying files for ${{ env.BINFILE }} to $(pwd)"
           ls -alht "$GITHUB_WORKSPACE/target/${{ matrix.builds.target }}/${{ env.TS_BUILD }}/"
-          cp -v $GITHUB_WORKSPACE/target/${{ matrix.builds.target }}/${{ env.TS_BUILD }}/xtrgpuminer${TS_EXT} .
+          cp -v $GITHUB_WORKSPACE/target/${{ matrix.builds.target }}/${{ env.TS_BUILD }}/${{ env.TS_FILENAME }}${TS_EXT} .
           echo "Archive ${{ env.BINFILE }} too ${{ env.BINFILE }}.zip"
           echo "Compute files shasum"
           ${SHARUN} * >> "${{ env.BINFILE }}.sha256"
