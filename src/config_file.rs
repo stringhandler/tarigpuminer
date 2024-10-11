@@ -34,7 +34,7 @@ impl Default for ConfigFile {
             // In range 1-1000
             gpu_percentage: 1000,
             grid_size: 1000,
-            template_timeout_secs: 5,
+            template_timeout_secs: 1,
         }
     }
 }

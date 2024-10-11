@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Error;
-use log::{error, info, warn};
+use log::{debug, error, warn};
 use opencl3::{
     command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE},
     context::Context,
@@ -18,7 +18,10 @@ use opencl3::{
 };
 
 use crate::{
-    context_impl::ContextImpl, engine_impl::EngineImpl, function_impl::FunctionImpl, gpu_status_file::GpuStatus,
+    context_impl::ContextImpl,
+    engine_impl::EngineImpl,
+    function_impl::FunctionImpl,
+    gpu_status_file::GpuStatus,
 };
 
 const LOG_TARGET: &str = "tari::gpuminer::opencl";
@@ -45,7 +48,7 @@ impl EngineImpl for OpenClEngine {
     type Function = OpenClFunction;
 
     fn init(&mut self) -> Result<(), anyhow::Error> {
-        info!(target: LOG_TARGET, "OpenClEngine: init engine");
+        debug!(target: LOG_TARGET, "OpenClEngine: init engine");
         let platforms = get_platforms()?;
         let mut lock = self.inner.write().unwrap();
         lock.platforms = platforms;
@@ -59,7 +62,7 @@ impl EngineImpl for OpenClEngine {
             let devices = platform.get_devices(CL_DEVICE_TYPE_GPU)?;
             total_devices += devices.len();
         }
-        info!(target: LOG_TARGET, "OpenClEngine: total number of devices {:?}", total_devices);
+        debug!(target: LOG_TARGET, "OpenClEngine: total number of devices {:?}", total_devices);
         Ok(total_devices as u32)
     }
 
@@ -70,12 +73,12 @@ impl EngineImpl for OpenClEngine {
         for platform in lock.platforms.iter() {
             let devices = platform.get_devices(CL_DEVICE_TYPE_GPU)?;
 
-            info!(target: LOG_TARGET, "OpenClEngine: platform name: {}", platform.name()?);
+            debug!(target: LOG_TARGET, "OpenClEngine: platform name: {}", platform.name()?);
             println!("List of the devices for the Platform: {}", platform.name()?);
             for device in devices {
                 let dev = Device::new(device);
                 let name = dev.name().unwrap_or_default() as String;
-                info!(target: LOG_TARGET, "Device index {:?}: {}", total_devices, &name);
+                debug!(target: LOG_TARGET, "Device index {:?}: {}", total_devices, &name);
                 println!("device: {}", &name);
                 let mut gpu = GpuStatus {
                     device_name: name,
@@ -83,7 +86,7 @@ impl EngineImpl for OpenClEngine {
                 };
                 gpu_devices.push(gpu);
                 total_devices += 1;
-                info!(target: LOG_TARGET, "Device nr {:?}: {}", total_devices, dev.name()?);
+                debug!(target: LOG_TARGET, "Device nr {:?}: {}", total_devices, dev.name()?);
                 println!("Device nr {:?}: {}", total_devices, dev.name()?);
             }
         }
@@ -94,7 +97,7 @@ impl EngineImpl for OpenClEngine {
     }
 
     fn create_context(&self, device_index: u32) -> Result<Self::Context, anyhow::Error> {
-        info!(target: LOG_TARGET, "OpenClEngine: create context");
+        debug!(target: LOG_TARGET, "OpenClEngine: create context");
         let lock = self.inner.write().unwrap();
         let mut devices = vec![];
         for platform in lock.platforms.iter() {
@@ -106,7 +109,7 @@ impl EngineImpl for OpenClEngine {
     }
 
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {
-        info!(target: LOG_TARGET, "OpenClEngine: create function");
+        debug!(target: LOG_TARGET, "OpenClEngine: create function");
         // let program = create_program_from_source(&context.context).unwrap();
         let program = match create_program_from_source(&context.context) {
             Some(program) => program,
@@ -139,11 +142,11 @@ impl EngineImpl for OpenClEngine {
         //     0
         // )?;
         unsafe {
-            info!(target: LOG_TARGET, "OpenClEngine: mine unsafe");
+            debug!(target: LOG_TARGET, "OpenClEngine: mine unsafe");
             let queue = CommandQueue::create_default(&context.context, CL_QUEUE_PROFILING_ENABLE)
                 .expect("could not create command queue");
 
-            info!(target: LOG_TARGET, "OpenClEngine: created queue");
+            debug!(target: LOG_TARGET, "OpenClEngine: created queue");
 
             let batch_size = 1 << 19; // According to tests, but we can try work this out
             let global_dimensions = [batch_size as usize];
@@ -152,7 +155,7 @@ impl EngineImpl for OpenClEngine {
             // let max_work_items = queue.max_work_item_dimensions();
             // dbg!(max_work_items);
             // dbg!("here");
-            info!(target: LOG_TARGET, "OpenClEngine: cmax workgroups {:?}", max_workgroups);
+            debug!(target: LOG_TARGET, "OpenClEngine: cmax workgroups {:?}", max_workgroups);
 
             let mut buffer =
                 match Buffer::<cl_ulong>::create(&context.context, CL_MEM_READ_ONLY, data.len(), ptr::null_mut()) {
@@ -163,14 +166,14 @@ impl EngineImpl for OpenClEngine {
                     },
                 };
             match queue.enqueue_write_buffer(&mut buffer, CL_TRUE, 0, data, &[]) {
-                Ok(_) => info!(target: LOG_TARGET, "OpenClEngine: buffer created"),
+                Ok(_) => debug!(target: LOG_TARGET, "OpenClEngine: buffer created"),
                 Err(e) => {
                     error!(target: LOG_TARGET, "OpenClEngine: failed to enqueue write buffer: {}", e);
                     return Err(e.into());
                 },
             };
 
-            info!(target: LOG_TARGET, "OpenClEngine: buffer created",);
+            debug!(target: LOG_TARGET, "OpenClEngine: buffer created",);
             let output_buffer =
                 match Buffer::<cl_ulong>::create(&context.context, CL_MEM_WRITE_ONLY, 2, ptr::null_mut()) {
                     Ok(buffer) => buffer,
@@ -181,8 +184,8 @@ impl EngineImpl for OpenClEngine {
                 };
             // dbg!(block_size);
             // dbg!(grid_size);
-            info!(target: LOG_TARGET, "OpenClEngine: output buffer created",);
-            info!(target: LOG_TARGET, "OpenClEngine: kernel work_size: g:{:?}",(grid_size * block_size) as usize);
+            debug!(target: LOG_TARGET, "OpenClEngine: output buffer created",);
+            debug!(target: LOG_TARGET, "OpenClEngine: kernel work_size: g:{:?}",(grid_size * block_size) as usize);
             for kernel in kernels {
                 match ExecuteKernel::new(&kernel)
             .set_arg(&buffer)
@@ -196,7 +199,7 @@ impl EngineImpl for OpenClEngine {
             // .set_wait_event(&y_write_event)
             .enqueue_nd_range(&queue)
                 {
-                    Ok(_) => info!(target: LOG_TARGET, "Kernel enqueued successfully"),
+                    Ok(_) => debug!(target: LOG_TARGET, "Kernel enqueued successfully"),
                     Err(e) => {
                         error!(target: LOG_TARGET, "Failed to enqueue kernel: {}", e);
                         // TODO
@@ -219,7 +222,7 @@ impl EngineImpl for OpenClEngine {
             queue.finish()?;
 
             let mut output = vec![0u64, 0u64];
-            info!(target: LOG_TARGET, "OpenClEngine: mine output {:?}", output[0] > 0);
+            debug!(target: LOG_TARGET, "OpenClEngine: mine output {:?}", output[0] > 0);
             queue.enqueue_read_buffer(&output_buffer, CL_TRUE, 0, output.as_mut_slice(), &[])?;
             if output[0] > 0 {
                 return Ok((
@@ -228,23 +231,22 @@ impl EngineImpl for OpenClEngine {
                     u64::MAX / output[1],
                 ));
             }
-            info!(target: LOG_TARGET, "OpenClEngine: mine unsafe return ok");
             // if output[1] == 0 {
             //     return Ok((None, grid_size * block_size * num_iterations, 0));
             // }
             return Ok((None, grid_size * block_size * num_iterations, u64::MAX / output[1]));
         }
-        info!(target: LOG_TARGET, "OpenClEngine: mine return ok");
+        debug!(target: LOG_TARGET, "OpenClEngine: mine return ok");
         Ok((None, grid_size * block_size * num_iterations, 0))
     }
 }
 fn create_program_from_source(context: &Context) -> Option<Program> {
     let opencl_code = include_str!("./opencl_sha3.cl");
-    info!(target: LOG_TARGET, "OpenClEngine: create program from source");
+    debug!(target: LOG_TARGET, "OpenClEngine: create program from source");
     // Load the program from file.
     let mut program = match Program::create_from_source(&context, &opencl_code) {
         Ok(program) => {
-            info!(target: LOG_TARGET, "OpenClEngine: program created successfully");
+            debug!(target: LOG_TARGET, "OpenClEngine: program created successfully");
             program
         },
         Err(error) => {
@@ -257,7 +259,7 @@ fn create_program_from_source(context: &Context) -> Option<Program> {
     // Build the program.
     match program.build(context.devices(), "") {
         Ok(_) => {
-            info!(target: LOG_TARGET, "OpenClEngine: program built successfully");
+            debug!(target: LOG_TARGET, "OpenClEngine: program built successfully");
             Some(program)
         },
         Err(error) => {
@@ -266,7 +268,7 @@ fn create_program_from_source(context: &Context) -> Option<Program> {
             for device_id in context.devices() {
                 match program.get_build_log(*device_id) {
                     Ok(log) => {
-                        info!(target: LOG_TARGET, "OpenClEngine: program log {}", log);
+                        debug!(target: LOG_TARGET, "OpenClEngine: program log {}", log);
                         println!("{}", log)
                     },
                     Err(error) => {

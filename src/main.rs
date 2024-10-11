@@ -7,9 +7,12 @@ use cust::{
     memory::{AsyncCopyDestination, DeviceCopy},
     prelude::*,
 };
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use minotari_app_grpc::tari_rpc::{
-    Block, BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput,
+    Block,
+    BlockHeader as grpc_header,
+    NewBlockTemplate,
+    TransactionOutput as GrpcTransactionOutput,
 };
 use num_format::{Locale, ToFormattedString};
 use sha3::Digest;
@@ -19,11 +22,13 @@ use tari_core::{
     blocks::BlockHeader,
     consensus::ConsensusManager,
     transactions::{
-        key_manager::create_memory_db_key_manager, tari_amount::MicroMinotari, transaction_components::RangeProofType,
+        key_manager::create_memory_db_key_manager,
+        tari_amount::MicroMinotari,
+        transaction_components::{CoinBaseExtra, RangeProofType},
     },
 };
 use tari_shutdown::Shutdown;
-use tokio::{runtime::Runtime, sync::RwLock};
+use tokio::{runtime::Runtime, sync::RwLock, time::sleep};
 
 #[cfg(feature = "nvidia")]
 use crate::cuda_engine::CudaEngine;
@@ -40,8 +45,6 @@ use crate::{
     stats_store::StatsStore,
     tari_coinbase::generate_coinbase,
 };
-
-use tari_core::transactions::transaction_components::CoinBaseExtra;
 
 mod config_file;
 mod context_impl;
@@ -148,7 +151,7 @@ struct Cli {
 
 async fn main_inner() -> Result<(), anyhow::Error> {
     let cli = Cli::parse();
-    info!(target: LOG_TARGET, "Xtrgpuminer init");
+    debug!(target: LOG_TARGET, "Xtrgpuminer init");
     if let Some(ref log_dir) = cli.log_dir {
         tari_common::initialize_logging(
             &log_dir.join("log4rs_config.yml"),
@@ -339,9 +342,14 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     // for t in threads {
     //     t.join().unwrap()?;
     // }
+    // let mut res = Ok(());
     for t in threads {
         if let Err(err) = t.join() {
             error!(target: LOG_TARGET, "Thread join failed: {:?}", err);
+            // if res.is_ok() {
+            // res = Err(anyhow!(err));
+            // }
+            // err?;
         }
     }
 
@@ -377,14 +385,14 @@ fn run_thread<T: EngineImpl>(
 
     let gpu_function = gpu_engine.get_main_function(&context)?;
 
-    //let (mut grid_size, block_size) = gpu_function
+    // let (mut grid_size, block_size) = gpu_function
     //    .suggested_launch_configuration()
     //    .context("get suggest config")?;
-    //let (grid_size, block_size) = (23, 50);
+    // let (grid_size, block_size) = (23, 50);
     let (mut grid_size, block_size) = (config.grid_size, 896);
-    //grid_size =
-    //    (grid_size as f64 / 1000f64 * cmp::max(cmp::min(100, config.gpu_percentage as usize), 1) as f64).round() as u32;
-    // let (mut grid_size, block_size) = gpu_function
+    // grid_size =
+    //    (grid_size as f64 / 1000f64 * cmp::max(cmp::min(100, config.gpu_percentage as usize), 1) as f64).round() as
+    // u32; let (mut grid_size, block_size) = gpu_function
     //     .suggested_launch_configuration()
     //     .context("get suggest config")?;
     // let (grid_size, block_size) = (23, 50);
@@ -396,6 +404,8 @@ fn run_thread<T: EngineImpl>(
 
     let mut data = vec![0u64; 6];
     // let mut data_buf = data.as_slice().as_dbuf()?;
+
+    let mut previous_template = None;
 
     loop {
         rounds += 1;
@@ -416,10 +426,21 @@ fn run_thread<T: EngineImpl>(
                 block = res_block;
                 header = res_header;
                 mining_hash = res_mining_hash;
+                previous_template = Some((target_difficulty, block.clone(), header.clone(), mining_hash.clone()));
             },
             Err(error) => {
                 println!("Error during getting next block: {error:?}");
-                continue;
+                error!(target: LOG_TARGET, "Error during getting next block: {:?}", error);
+                if previous_template.is_none() {
+                    thread::sleep(std::time::Duration::from_secs(1));
+                    continue;
+                }
+                let (res_target_difficulty, res_block, res_header, res_mining_hash) =
+                    previous_template.as_ref().cloned().unwrap();
+                target_difficulty = res_target_difficulty;
+                block = res_block;
+                header = res_header;
+                mining_hash = res_mining_hash;
             },
         }
 
@@ -440,9 +461,9 @@ fn run_thread<T: EngineImpl>(
         let mut max_diff = 0;
         let mut last_printed = Instant::now();
         loop {
-            info!(target: LOG_TARGET, "Inside loop");
+            debug!(target: LOG_TARGET, "Inside loop");
             if elapsed.elapsed().as_secs() > config.template_refresh_secs {
-                info!(target: LOG_TARGET, "Elapsed {:?} > {:?}", elapsed.elapsed().as_secs(), config.template_refresh_secs );
+                debug!(target: LOG_TARGET, "Elapsed {:?} > {:?}", elapsed.elapsed().as_secs(), config.template_refresh_secs );
                 break;
             }
             let num_iterations = 16;
@@ -465,7 +486,7 @@ fn run_thread<T: EngineImpl>(
             );
             let (nonce, hashes, diff) = match result {
                 Ok(values) => {
-                    info!(target: LOG_TARGET,
+                    debug!(target: LOG_TARGET,
                         "Mining successful: nonce={:?}, hashes={}, difficulty={}",
                         values.0, values.1, values.2
                     );
@@ -483,9 +504,9 @@ fn run_thread<T: EngineImpl>(
                 max_diff = diff;
             }
             nonce_start = nonce_start + hashes as u64;
-            info!(target: LOG_TARGET, "Nonce start {:?}", nonce_start.to_formatted_string(&Locale::en));
+            debug!(target: LOG_TARGET, "Nonce start {:?}", nonce_start.to_formatted_string(&Locale::en));
             if elapsed.elapsed().as_secs() > 1 {
-                info!(target: LOG_TARGET, "Elapsed {:?} > 1",elapsed.elapsed().as_secs());
+                debug!(target: LOG_TARGET, "Elapsed {:?} > 1",elapsed.elapsed().as_secs());
                 if Instant::now() - last_printed > std::time::Duration::from_secs(2) {
                     last_printed = Instant::now();
                     let hash_rate = (nonce_start - first_nonce) / elapsed.elapsed().as_secs();
@@ -508,9 +529,9 @@ fn run_thread<T: EngineImpl>(
                     hash_rate.to_formatted_string(&Locale::en));
                 }
             }
-            info!(target: LOG_TARGET, "Inside loop nonce {:?}", nonce.clone().is_some());
+            debug!(target: LOG_TARGET, "Inside loop nonce {:?}", nonce.clone().is_some());
             if nonce.is_some() {
-                info!(target: LOG_TARGET, "Inside loop nonce is some {:?}", nonce.clone().is_some());
+                debug!(target: LOG_TARGET, "Inside loop nonce is some {:?}", nonce.clone().is_some());
                 header.nonce = nonce.unwrap();
 
                 let mut mined_block = block.clone();
@@ -533,10 +554,10 @@ fn run_thread<T: EngineImpl>(
                         println!("Error submitting block: {:?}", e);
                     },
                 }
-                info!(target: LOG_TARGET, "Inside thread loop (nonce) break {:?}", num_threads);
+                debug!(target: LOG_TARGET, "Inside thread loop (nonce) break {:?}", num_threads);
                 break;
             }
-            info!(target: LOG_TARGET, "Inside thread loop break {:?}", num_threads);
+            debug!(target: LOG_TARGET, "Inside thread loop break {:?}", num_threads);
             // break;
         }
     }
@@ -573,7 +594,7 @@ async fn get_template(
 
     // p2pool enabled
     if config.p2pool_enabled {
-        info!(target: LOG_TARGET, "p2pool enabled");
+        debug!(target: LOG_TARGET, "p2pool enabled");
         let block_result = tokio::time::timeout(
             std::time::Duration::from_secs(config.template_timeout_secs),
             lock.get_new_block(NewBlockTemplate::default()),
@@ -611,7 +632,7 @@ async fn get_template(
         fee,
         reward,
         height,
-        //config.coinbase_extra.as_bytes(),
+        // config.coinbase_extra.as_bytes(),
         &CoinBaseExtra::try_from(config.coinbase_extra.as_bytes().to_vec())?,
         &key_manager,
         &address,
@@ -620,7 +641,7 @@ async fn get_template(
         RangeProofType::RevealedValue,
     )
     .await?;
-    info!(target: LOG_TARGET, "Getting block template difficulty {:?}", miner_data.target_difficulty.clone());
+    debug!(target: LOG_TARGET, "Getting block template difficulty {:?}", miner_data.target_difficulty.clone());
     let body = block_template.body.as_mut().expect("no block body");
     let grpc_output = GrpcTransactionOutput::try_from(coinbase_output.clone()).map_err(|s| anyhow!(s))?;
     body.outputs.push(grpc_output);

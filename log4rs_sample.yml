@@ -33,7 +33,14 @@ appenders:
 
 # Set the default logging level to "info"
 root:
-  level: info
+  level: warn
   appenders:
     - stdout
     - xtrgpuminer
+
+loggers:
+  tari:
+    level: info
+    appenders:
+      - stdout
+      - xtrgpuminer
