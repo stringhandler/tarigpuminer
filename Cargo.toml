@@ -1,41 +1,41 @@
 [package]
-name = "xtrgpuminer"
-version = "0.1.13"
 edition = "2021"
+name = "xtrgpuminer"
+version = "0.1.14"
 
 [dependencies]
-tari_core = { git = "https://github.com/tari-project/tari", default-features = false, features = [
-    "transactions",
-] }
-minotari_app_grpc = { git = "http://github.com/tari-project/tari" }
-tari_common_types = { git = "http://github.com/tari-project/tari" }
-tari_common = { git = "http://github.com/tari-project/tari" }
-tari_script = { git = "http://github.com/tari-project/tari" }
-tari_key_manager = { git = "http://github.com/tari-project/tari" }
-tari_shutdown = { git = "https://github.com/tari-project/tari.git" }
-tari_crypto = { version = "0.20.3", features = ["borsh"] }
-tari_utilities = "0.7"
-serde = { version = "1.0.130", features = ["derive"] }
-serde_json = "1.0.68"
 anyhow = "*"
-clap = { version = "4.5.0", features = ["derive"] }
-sha3 = "0.10"
+clap = {version = "4.5.0", features = ["derive"]}
+minotari_app_grpc = {git = "http://github.com/tari-project/tari"}
 num-format = "0.4.4"
+serde = {version = "1.0.130", features = ["derive"]}
+serde_json = "1.0.68"
+sha3 = "0.10"
+tari_common = {git = "http://github.com/tari-project/tari"}
+tari_common_types = {git = "http://github.com/tari-project/tari"}
+tari_core = {git = "https://github.com/tari-project/tari", default-features = false, features = [
+  "transactions",
+]}
+tari_crypto = {version = "0.20.3", features = ["borsh"]}
+tari_key_manager = {git = "http://github.com/tari-project/tari"}
+tari_script = {git = "http://github.com/tari-project/tari"}
+tari_shutdown = {git = "https://github.com/tari-project/tari.git"}
+tari_utilities = "0.7"
 
-tokio = { version = "1.36", features = ["full"] }
-tonic = { version = "0.12.3" }
+libsqlite3-sys = {version = "0.25.1", features = ["bundled"]}
 prost = "0.13.3"
 prost-types = "0.13.3"
 rand = "0.8"
-libsqlite3-sys = { version = "0.25.1", features = ["bundled"] }
+tokio = {version = "1.36", features = ["full"]}
+tonic = {version = "0.12.3"}
 
-cust = { version = "0.3.2", optional = true }
-opencl3 = { version = "0.9.5", optional = true }
-opencl-sys = "*"
 axum = "0.7.5"
-thiserror = "1.0.63"
+cust = {version = "0.3.2", optional = true}
 log = "0.4.22"
 log4rs = "1.3.0"
+opencl-sys = "*"
+opencl3 = {version = "0.9.5", optional = true}
+thiserror = "1.0.63"
 
 [features]
 default = []
