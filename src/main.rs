@@ -7,6 +7,7 @@ use cust::{
     memory::{AsyncCopyDestination, DeviceCopy},
     prelude::*,
 };
+use http::stats_collector::{self, HashrateSample};
 use log::{debug, error, info, warn};
 use minotari_app_grpc::tari_rpc::{
     Block,
@@ -28,7 +29,12 @@ use tari_core::{
     },
 };
 use tari_shutdown::Shutdown;
-use tokio::{runtime::Runtime, sync::RwLock, time::sleep};
+use tari_utilities::epoch_time::EpochTime;
+use tokio::{
+    runtime::Runtime,
+    sync::{broadcast::Sender, RwLock},
+    time::sleep,
+};
 
 #[cfg(feature = "nvidia")]
 use crate::cuda_engine::CudaEngine;
@@ -227,11 +233,18 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
     // http server
     let mut shutdown = Shutdown::new();
-    let stats_store = Arc::new(StatsStore::new());
+    let (stats_tx, stats_rx) = tokio::sync::broadcast::channel(100);
     if config.http_server_enabled {
+        let mut stats_collector = stats_collector::StatsCollector::new(shutdown.to_signal(), stats_rx);
+        let stats_client = stats_collector.create_client();
+        info!(target: LOG_TARGET, "Stats collector started");
+        tokio::spawn(async move {
+            stats_collector.run().await;
+            info!(target: LOG_TARGET, "Stats collector shutdown");
+        });
         let http_server_config = Config::new(config.http_server_port);
         info!(target: LOG_TARGET, "HTTP server runs on port: {}", &http_server_config.port);
-        let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_store.clone());
+        let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_client);
         info!(target: LOG_TARGET, "HTTP server enabled");
         tokio::spawn(async move {
             if let Err(error) = http_server.start().await {
@@ -332,9 +345,9 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         if devices_to_use.contains(&i) {
             let c = config.clone();
             let gpu = gpu_engine.clone();
-            let curr_stats_store = stats_store.clone();
+            let curr_stats_tx = stats_tx.clone();
             threads.push(thread::spawn(move || {
-                run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_store)
+                run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_tx)
             }));
         }
     }
@@ -364,7 +377,7 @@ fn run_thread<T: EngineImpl>(
     thread_index: u32,
     config: ConfigFile,
     benchmark: bool,
-    stats_store: Arc<StatsStore>,
+    stats_tx: Sender<HashrateSample>,
 ) -> Result<(), anyhow::Error> {
     let tari_node_url = config.tari_node_url.clone();
     let runtime = Runtime::new()?;
@@ -414,10 +427,10 @@ fn run_thread<T: EngineImpl>(
         }
         let clone_node_client = node_client.clone();
         let clone_config = config.clone();
-        let mut target_difficulty: u64;
-        let mut block: Block;
+        let target_difficulty: u64;
+        let block: Block;
         let mut header: BlockHeader;
-        let mut mining_hash: FixedHash;
+        let mining_hash: FixedHash;
         match runtime.block_on(async move { get_template(clone_config, clone_node_client, rounds, benchmark).await }) {
             Ok((res_target_difficulty, res_block, res_header, res_mining_hash)) => {
                 info!(target: LOG_TARGET, "Getting next block...");
@@ -456,10 +469,10 @@ fn run_thread<T: EngineImpl>(
 
         let mut nonce_start = (u64::MAX / num_threads) * thread_index as u64;
         let first_nonce = nonce_start;
-        let mut last_hash_rate = 0;
         let elapsed = Instant::now();
         let mut max_diff = 0;
         let mut last_printed = Instant::now();
+        let mut last_reported_stats = Instant::now();
         loop {
             debug!(target: LOG_TARGET, "Inside loop");
             if elapsed.elapsed().as_secs() > config.template_refresh_secs {
@@ -506,11 +519,17 @@ fn run_thread<T: EngineImpl>(
             nonce_start = nonce_start + hashes as u64;
             debug!(target: LOG_TARGET, "Nonce start {:?}", nonce_start.to_formatted_string(&Locale::en));
             if elapsed.elapsed().as_secs() > 1 {
-                debug!(target: LOG_TARGET, "Elapsed {:?} > 1",elapsed.elapsed().as_secs());
+                let hash_rate = (nonce_start - first_nonce) / elapsed.elapsed().as_secs();
+                if Instant::now() - last_reported_stats > std::time::Duration::from_millis(500) {
+                    last_reported_stats = Instant::now();
+                    stats_tx.send(HashrateSample {
+                        device_id: thread_index,
+                        hashrate: hash_rate,
+                        timestamp: EpochTime::now(),
+                    })?;
+                }
                 if Instant::now() - last_printed > std::time::Duration::from_secs(2) {
                     last_printed = Instant::now();
-                    let hash_rate = (nonce_start - first_nonce) / elapsed.elapsed().as_secs();
-                    stats_store.update_hashes_per_second(hash_rate);
                     println!(
                         "[Thread:{}] total {:} grid: {} max_diff: {}, target: {} hashes/sec: {}",
                         thread_index,
@@ -546,11 +565,11 @@ fn run_thread<T: EngineImpl>(
                     .await?
                 }) {
                     Ok(_) => {
-                        stats_store.inc_accepted_blocks();
+                        // stats_store.inc_accepted_blocks();
                         println!("Block submitted");
                     },
                     Err(e) => {
-                        stats_store.inc_rejected_blocks();
+                        // stats_store.inc_rejected_blocks();
                         println!("Error submitting block: {:?}", e);
                     },
                 }
