@@ -6,6 +6,7 @@ use tari_shutdown::ShutdownSignal;
 use thiserror::Error;
 use tokio::io;
 
+use super::stats_collector::StatsClient;
 use crate::{
     http::{
         config,
@@ -20,7 +21,7 @@ const LOG_TARGET: &str = "tari::gpuminer::server";
 pub struct HttpServer {
     shutdown_signal: ShutdownSignal,
     config: config::Config,
-    stats_store: Arc<StatsStore>,
+    stats_client: StatsClient,
 }
 
 #[derive(Error, Debug)]
@@ -31,15 +32,15 @@ pub enum Error {
 
 #[derive(Clone)]
 pub struct AppState {
-    pub stats_store: Arc<StatsStore>,
+    pub stats_client: StatsClient,
 }
 
 impl HttpServer {
-    pub fn new(shutdown_signal: ShutdownSignal, config: config::Config, stats_store: Arc<StatsStore>) -> Self {
+    pub fn new(shutdown_signal: ShutdownSignal, config: config::Config, stats_client: StatsClient) -> Self {
         Self {
             shutdown_signal,
             config,
-            stats_store,
+            stats_client,
         }
     }
 
@@ -49,7 +50,7 @@ impl HttpServer {
             .route("/version", get(version::handle_version))
             .route("/stats", get(stats::handle_get_stats))
             .with_state(AppState {
-                stats_store: self.stats_store.clone(),
+                stats_client: self.stats_client.clone(),
             })
     }
 

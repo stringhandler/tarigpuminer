@@ -7,6 +7,7 @@ use cust::{
     memory::{AsyncCopyDestination, DeviceCopy},
     prelude::*,
 };
+use http::stats_collector;
 use log::{debug, error, info, warn};
 use minotari_app_grpc::tari_rpc::{
     Block,
@@ -229,9 +230,17 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     let mut shutdown = Shutdown::new();
     let stats_store = Arc::new(StatsStore::new());
     if config.http_server_enabled {
+        let (stats_tx, stats_rx) = tokio::sync::broadcast::channel(100);
+        let mut stats_collector = stats_collector::StatsCollector::new(shutdown.to_signal(), stats_rx);
+        let stats_client = stats_collector.create_client();
+        info!(target: LOG_TARGET, "Stats collector started");
+        tokio::spawn(async move {
+            stats_collector.run().await;
+            info!(target: LOG_TARGET, "Stats collector shutdown");
+        });
         let http_server_config = Config::new(config.http_server_port);
         info!(target: LOG_TARGET, "HTTP server runs on port: {}", &http_server_config.port);
-        let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_store.clone());
+        let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_client);
         info!(target: LOG_TARGET, "HTTP server enabled");
         tokio::spawn(async move {
             if let Err(error) = http_server.start().await {
