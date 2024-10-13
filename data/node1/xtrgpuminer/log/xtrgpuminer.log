@@ -4426,3 +4426,79 @@
 2024-10-13 14:07:32.735064400 INFO  [THREAD:0] total 3,211,264,000 grid: 1000 max_diff: 1,654,047,785, target: 8,312,363,280 hashes/sec: 200,704,000 // src/main.rs:543
 2024-10-13 14:07:34.743251800 INFO  [THREAD:0] total 3,612,672,000 grid: 1000 max_diff: 1,654,047,785, target: 8,312,363,280 hashes/sec: 200,704,000 // src/main.rs:543
 2024-10-13 14:07:34.743275300 INFO  [THREAD:0] total 3,612,672,000 grid: 1000 max_diff: 1,654,047,785, target: 8,312,363,280 hashes/sec: 200,704,000 // src/main.rs:543
+2024-10-13 14:12:08.697317100 INFO  Config file loaded successfully // src/main.rs:177
+2024-10-13 14:12:08.697363000 INFO  Config file loaded successfully // src/main.rs:177
+2024-10-13 14:12:08.723535400 INFO  Stats collector started // src/main.rs:240
+2024-10-13 14:12:08.723551700 INFO  Stats collector started // src/main.rs:240
+2024-10-13 14:12:08.723576800 INFO  HTTP server runs on port: 18000 // src/main.rs:246
+2024-10-13 14:12:08.723583800 INFO  HTTP server runs on port: 18000 // src/main.rs:246
+2024-10-13 14:12:08.723590600 INFO  HTTP server enabled // src/main.rs:248
+2024-10-13 14:12:08.723596800 INFO  HTTP server enabled // src/main.rs:248
+2024-10-13 14:12:08.723615300 INFO  Device indexes to use: [0] from the total number of devices: 1 // src/main.rs:341
+2024-10-13 14:12:08.723622300 INFO  Device indexes to use: [0] from the total number of devices: 1 // src/main.rs:341
+2024-10-13 14:12:08.723700600 INFO  Http: starts the http server on the port 18000 // src\http\server.rs:59
+2024-10-13 14:12:08.723716700 INFO  Http: starts the http server on the port 18000 // src\http\server.rs:59
+2024-10-13 14:12:08.724564600 INFO  Creating node client: http://127.0.0.1:18142 // src\node_client.rs:104
+2024-10-13 14:12:08.724586500 INFO  Creating node client: http://127.0.0.1:18142 // src\node_client.rs:104
+2024-10-13 14:12:08.724600800 INFO  Connecting to http://127.0.0.1:18142 // src\node_client.rs:23
+2024-10-13 14:12:08.724619800 INFO  Connecting to http://127.0.0.1:18142 // src\node_client.rs:23
+2024-10-13 14:12:08.725612200 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src\http\server.rs:66
+2024-10-13 14:12:08.725625300 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src\http\server.rs:66
+2024-10-13 14:12:08.725783700 INFO  Connected successfully // src\node_client.rs:28
+2024-10-13 14:12:08.725796200 INFO  Connected successfully // src\node_client.rs:28
+2024-10-13 14:12:08.810031100 INFO  Getting block template round 1 // src/main.rs:592
+2024-10-13 14:12:08.810048800 INFO  Getting block template round 1 // src/main.rs:592
+2024-10-13 14:12:08.813706000 INFO  Getting node block template // src\node_client.rs:55
+2024-10-13 14:12:08.813720700 INFO  Getting node block template // src\node_client.rs:55
+2024-10-13 14:12:08.815043800 INFO  Done getting node block template // src\node_client.rs:67
+2024-10-13 14:12:08.815055400 INFO  Done getting node block template // src\node_client.rs:67
+2024-10-13 14:12:08.816722400 INFO  Getting new block template // src\node_client.rs:72
+2024-10-13 14:12:08.816733500 INFO  Getting new block template // src\node_client.rs:72
+2024-10-13 14:12:08.817786700 INFO  Done getting new block template // src\node_client.rs:74
+2024-10-13 14:12:08.817801400 INFO  Done getting new block template // src\node_client.rs:74
+2024-10-13 14:12:08.818145000 INFO  Getting next block... // src/main.rs:436
+2024-10-13 14:12:08.818154700 INFO  Getting next block... // src/main.rs:436
+2024-10-13 14:12:10.835067800 INFO  [THREAD:0] total 415,744,000 grid: 1000 max_diff: 382,528,997, target: 8,312,363,280 hashes/sec: 207,872,000 // src/main.rs:543
+2024-10-13 14:12:10.835090100 INFO  [THREAD:0] total 415,744,000 grid: 1000 max_diff: 382,528,997, target: 8,312,363,280 hashes/sec: 207,872,000 // src/main.rs:543
+2024-10-13 14:12:12.870923200 INFO  [THREAD:0] total 845,824,000 grid: 1000 max_diff: 382,528,997, target: 8,312,363,280 hashes/sec: 211,456,000 // src/main.rs:543
+2024-10-13 14:12:12.870944700 INFO  [THREAD:0] total 845,824,000 grid: 1000 max_diff: 382,528,997, target: 8,312,363,280 hashes/sec: 211,456,000 // src/main.rs:543
+2024-10-13 14:12:37.419235400 INFO  Config file loaded successfully // src/main.rs:177
+2024-10-13 14:12:37.419281900 INFO  Config file loaded successfully // src/main.rs:177
+2024-10-13 14:12:37.439185700 INFO  Stats collector started // src/main.rs:240
+2024-10-13 14:12:37.439201900 INFO  Stats collector started // src/main.rs:240
+2024-10-13 14:12:37.439292800 INFO  HTTP server runs on port: 18000 // src/main.rs:246
+2024-10-13 14:12:37.439302500 INFO  HTTP server runs on port: 18000 // src/main.rs:246
+2024-10-13 14:12:37.439310200 INFO  HTTP server enabled // src/main.rs:248
+2024-10-13 14:12:37.439317200 INFO  HTTP server enabled // src/main.rs:248
+2024-10-13 14:12:37.439355000 INFO  Device indexes to use: [0] from the total number of devices: 1 // src/main.rs:341
+2024-10-13 14:12:37.439444900 INFO  Http: starts the http server on the port 18000 // src\http\server.rs:59
+2024-10-13 14:12:37.439457700 INFO  Device indexes to use: [0] from the total number of devices: 1 // src/main.rs:341
+2024-10-13 14:12:37.439470300 INFO  Http: starts the http server on the port 18000 // src\http\server.rs:59
+2024-10-13 14:12:37.440488600 INFO  Creating node client: http://127.0.0.1:18142 // src\node_client.rs:104
+2024-10-13 14:12:37.440520700 INFO  Creating node client: http://127.0.0.1:18142 // src\node_client.rs:104
+2024-10-13 14:12:37.440558300 INFO  Connecting to http://127.0.0.1:18142 // src\node_client.rs:23
+2024-10-13 14:12:37.440586100 INFO  Connecting to http://127.0.0.1:18142 // src\node_client.rs:23
+2024-10-13 14:12:37.441733600 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src\http\server.rs:66
+2024-10-13 14:12:37.441747000 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src\http\server.rs:66
+2024-10-13 14:12:37.441993400 INFO  Connected successfully // src\node_client.rs:28
+2024-10-13 14:12:37.442007500 INFO  Connected successfully // src\node_client.rs:28
+2024-10-13 14:12:37.521015500 INFO  Getting block template round 1 // src/main.rs:592
+2024-10-13 14:12:37.521031800 INFO  Getting block template round 1 // src/main.rs:592
+2024-10-13 14:12:37.525292600 INFO  Getting node block template // src\node_client.rs:55
+2024-10-13 14:12:37.525305900 INFO  Getting node block template // src\node_client.rs:55
+2024-10-13 14:12:37.526764400 INFO  Done getting node block template // src\node_client.rs:67
+2024-10-13 14:12:37.526775900 INFO  Done getting node block template // src\node_client.rs:67
+2024-10-13 14:12:37.528538000 INFO  Getting new block template // src\node_client.rs:72
+2024-10-13 14:12:37.528548600 INFO  Getting new block template // src\node_client.rs:72
+2024-10-13 14:12:37.529562100 INFO  Done getting new block template // src\node_client.rs:74
+2024-10-13 14:12:37.529574700 INFO  Done getting new block template // src\node_client.rs:74
+2024-10-13 14:12:37.529927100 INFO  Getting next block... // src/main.rs:436
+2024-10-13 14:12:37.529936900 INFO  Getting next block... // src/main.rs:436
+2024-10-13 14:12:39.584984100 INFO  [THREAD:0] total 430,080,000 grid: 1000 max_diff: 94,055,526, target: 8,312,363,280 hashes/sec: 215,040,000 // src/main.rs:543
+2024-10-13 14:12:39.585007200 INFO  [THREAD:0] total 430,080,000 grid: 1000 max_diff: 94,055,526, target: 8,312,363,280 hashes/sec: 215,040,000 // src/main.rs:543
+2024-10-13 14:12:41.626752200 INFO  [THREAD:0] total 860,160,000 grid: 1000 max_diff: 176,852,650, target: 8,312,363,280 hashes/sec: 215,040,000 // src/main.rs:543
+2024-10-13 14:12:41.626778400 INFO  [THREAD:0] total 860,160,000 grid: 1000 max_diff: 176,852,650, target: 8,312,363,280 hashes/sec: 215,040,000 // src/main.rs:543
+2024-10-13 14:12:43.639285600 INFO  [THREAD:0] total 1,290,240,000 grid: 1000 max_diff: 435,305,309, target: 8,312,363,280 hashes/sec: 215,040,000 // src/main.rs:543
+2024-10-13 14:12:43.639318600 INFO  [THREAD:0] total 1,290,240,000 grid: 1000 max_diff: 435,305,309, target: 8,312,363,280 hashes/sec: 215,040,000 // src/main.rs:543
+2024-10-13 14:12:45.644429900 INFO  [THREAD:0] total 1,720,320,000 grid: 1000 max_diff: 435,305,309, target: 8,312,363,280 hashes/sec: 215,040,000 // src/main.rs:543
+2024-10-13 14:12:45.644453200 INFO  [THREAD:0] total 1,720,320,000 grid: 1000 max_diff: 435,305,309, target: 8,312,363,280 hashes/sec: 215,040,000 // src/main.rs:543

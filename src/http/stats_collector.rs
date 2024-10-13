@@ -17,6 +17,7 @@ pub(crate) struct StatsCollector {
     stats_broadcast_receiver: tokio::sync::broadcast::Receiver<HashrateSample>,
     request_tx: tokio::sync::mpsc::Sender<StatsRequest>,
     request_rx: tokio::sync::mpsc::Receiver<StatsRequest>,
+    first_stat_received: Option<EpochTime>,
 }
 
 pub(crate) enum StatsRequest {
@@ -30,8 +31,8 @@ pub(crate) struct GetHashrateResponse {
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct AverageHashrate {
-    ten_seconds: f64,
-    one_minute: f64,
+    ten_seconds: Option<f64>,
+    one_minute: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +63,7 @@ impl StatsCollector {
             stats_broadcast_receiver,
             request_rx: rx,
             request_tx: tx,
+            first_stat_received: None,
         }
     }
 
@@ -105,6 +107,24 @@ impl StatsCollector {
             }
             let ten_seconds = total_for_10_seconds / 10.0;
             let one_minute = total_for_60_seconds / 60.0;
+            let ten_seconds = if let Some(first_stat_received) = self.first_stat_received {
+                if first_stat_received.as_u64() + 10 < current_time {
+                    Some(ten_seconds)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            let one_minute = if let Some(first_stat_received) = self.first_stat_received {
+                if first_stat_received.as_u64() + 60 < current_time {
+                    Some(one_minute)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
             result.insert(*device_id, AverageHashrate {
                 ten_seconds,
                 one_minute,
@@ -139,6 +159,9 @@ impl StatsCollector {
                 res = self.stats_broadcast_receiver.recv() => {
                     match res {
                         Ok(sample) => {
+                            if self.first_stat_received.is_none() {
+                                self.first_stat_received = Some(sample.timestamp);
+                            }
                             // Expect 2 samples per second per device
                             let entry = self.hashrate_samples.entry(sample.device_id).or_insert_with(|| VecDeque::with_capacity(181));
                     if entry.len() > 180 {
