@@ -427,10 +427,10 @@ fn run_thread<T: EngineImpl>(
         }
         let clone_node_client = node_client.clone();
         let clone_config = config.clone();
-        let mut target_difficulty: u64;
-        let mut block: Block;
+        let target_difficulty: u64;
+        let block: Block;
         let mut header: BlockHeader;
-        let mut mining_hash: FixedHash;
+        let mining_hash: FixedHash;
         match runtime.block_on(async move { get_template(clone_config, clone_node_client, rounds, benchmark).await }) {
             Ok((res_target_difficulty, res_block, res_header, res_mining_hash)) => {
                 info!(target: LOG_TARGET, "Getting next block...");
@@ -469,7 +469,6 @@ fn run_thread<T: EngineImpl>(
 
         let mut nonce_start = (u64::MAX / num_threads) * thread_index as u64;
         let first_nonce = nonce_start;
-        let mut last_hash_rate = 0;
         let elapsed = Instant::now();
         let mut max_diff = 0;
         let mut last_printed = Instant::now();
