@@ -3,8 +3,16 @@ use std::time::{Duration, Instant};
 use anyhow::anyhow;
 use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::{
-    base_node_client::BaseNodeClient, pow_algo::PowAlgos, sha_p2_pool_client::ShaP2PoolClient, Block, Empty,
-    GetNewBlockResult, NewBlockTemplate, NewBlockTemplateRequest, NewBlockTemplateResponse, PowAlgo,
+    base_node_client::BaseNodeClient,
+    pow_algo::PowAlgos,
+    sha_p2_pool_client::ShaP2PoolClient,
+    Block,
+    Empty,
+    GetNewBlockResult,
+    NewBlockTemplate,
+    NewBlockTemplateRequest,
+    NewBlockTemplateResponse,
+    PowAlgo,
 };
 use tari_common_types::tari_address::TariAddress;
 use tonic::{async_trait, transport::Channel};
@@ -71,7 +79,6 @@ impl NodeClient for BaseNodeClientWrapper {
     async fn get_new_block(&mut self, template: NewBlockTemplate) -> Result<NewBlockResult, anyhow::Error> {
         info!(target: LOG_TARGET, "Getting new block template");
         let res = self.client.get_new_block(tonic::Request::new(template)).await?;
-        info!(target: LOG_TARGET, "Done getting new block template");
         Ok(NewBlockResult::try_from(res.into_inner())?)
     }
 
@@ -79,7 +86,6 @@ impl NodeClient for BaseNodeClientWrapper {
         info!(target: LOG_TARGET, "Submitting block");
         // dbg!(&block);
         let res = self.client.submit_block(tonic::Request::new(block)).await?;
-        println!("Block submitted: {:?}", res);
         info!(target: LOG_TARGET, "Block submitted: {:?}", res);
         Ok(())
     }
