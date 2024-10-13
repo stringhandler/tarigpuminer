@@ -1,5 +1,6 @@
 /target
 config.json
+data
 
 # Ignore OS files
 .DS_Store
