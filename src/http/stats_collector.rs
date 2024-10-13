@@ -13,7 +13,7 @@ const LOG_TARGET: &str = "tari::gpu_miner::http::stats_collector";
 
 pub(crate) struct StatsCollector {
     shutdown_signal: ShutdownSignal,
-    hashrate_samples: HashMap<usize, VecDeque<HashrateSample>>,
+    hashrate_samples: HashMap<u32, VecDeque<HashrateSample>>,
     stats_broadcast_receiver: tokio::sync::broadcast::Receiver<HashrateSample>,
     request_tx: tokio::sync::mpsc::Sender<StatsRequest>,
     request_rx: tokio::sync::mpsc::Receiver<StatsRequest>,
@@ -24,7 +24,7 @@ pub(crate) enum StatsRequest {
 }
 
 pub(crate) struct GetHashrateResponse {
-    pub devices: HashMap<usize, AverageHashrate>,
+    pub devices: HashMap<u32, AverageHashrate>,
     pub total: AverageHashrate,
 }
 
@@ -36,9 +36,9 @@ pub(crate) struct AverageHashrate {
 
 #[derive(Debug, Clone)]
 pub(crate) struct HashrateSample {
-    pub(crate) device_id: usize,
+    pub(crate) device_id: u32,
     pub(crate) timestamp: EpochTime,
-    pub(crate) hashrate: f64,
+    pub(crate) hashrate: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -72,7 +72,7 @@ impl StatsCollector {
     }
 
     fn calc_hashrate(&self) -> GetHashrateResponse {
-        let mut result = HashMap::<usize, AverageHashrate>::new();
+        let mut result = HashMap::<u32, AverageHashrate>::new();
         let current_time = EpochTime::now().as_u64();
         for (device_id, s) in self.hashrate_samples.iter() {
             let mut samples: VecDeque<&HashrateSample> = s.iter().collect();
@@ -95,9 +95,9 @@ impl StatsCollector {
                 // only take the first sample we have for hashrate.
                 if let Some(sample) = samples.front() {
                     if sample.timestamp.as_u64() == second {
-                        total_for_60_seconds += sample.hashrate;
+                        total_for_60_seconds += sample.hashrate as f64;
                         if second >= current_time - 10 {
-                            total_for_10_seconds += sample.hashrate;
+                            total_for_10_seconds += sample.hashrate as f64;
                         }
                         samples.pop_front();
                     }
@@ -139,8 +139,9 @@ impl StatsCollector {
                 res = self.stats_broadcast_receiver.recv() => {
                     match res {
                         Ok(sample) => {
-                            let entry = self.hashrate_samples.entry(sample.device_id).or_insert_with(|| VecDeque::with_capacity(61));
-                    if entry.len() > 60 {
+                            // Expect 2 samples per second per device
+                            let entry = self.hashrate_samples.entry(sample.device_id).or_insert_with(|| VecDeque::with_capacity(181));
+                    if entry.len() > 180 {
                         entry.pop_front();
                     }
                     entry.push_back(sample);

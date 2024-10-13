@@ -10,7 +10,7 @@ use crate::http::{
 
 #[derive(Serialize)]
 pub struct Stats {
-    hashrate_per_device: HashMap<usize, AverageHashrate>,
+    hashrate_per_device: HashMap<u32, AverageHashrate>,
     total_hashrate: AverageHashrate,
 }
 
