@@ -453,6 +453,7 @@ fn run_thread<T: EngineImpl>(
                 target_difficulty = res_target_difficulty;
                 block = res_block;
                 header = res_header;
+                header.timestamp = EpochTime::now();
                 mining_hash = res_mining_hash;
             },
         }
