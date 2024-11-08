@@ -8,8 +8,12 @@ use anyhow;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct GpuStatus {
+    pub device_index: u32,
     pub device_name: String,
     pub is_available: bool,
+    pub grid_size: u32,
+    pub max_grid_size: u32,
+    pub block_size: u32,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
