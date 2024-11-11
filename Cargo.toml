@@ -38,5 +38,5 @@ opencl3 = {version = "0.9.5", optional = true}
 thiserror = "1.0.63"
 
 [features]
-default = []
+default = ["opencl3"]
 nvidia = ["cust"]

@@ -1,3 +1,4 @@
 pub trait FunctionImpl {
-    fn suggested_launch_configuration(&self) -> Result<(u32, u32), anyhow::Error>;
+    type Device;
+    fn suggested_launch_configuration(&self, device: &Self::Device) -> Result<(u32, u32), anyhow::Error>;
 }

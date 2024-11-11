@@ -15,8 +15,9 @@ pub(crate) struct ConfigFile {
     pub p2pool_enabled: bool,
     pub http_server_enabled: bool,
     pub http_server_port: u16,
-    pub gpu_percentage: u16,
-    pub grid_size: u32,
+    pub block_size: u32,
+    pub single_grid_size: u32,
+    pub per_device_grid_sizes: Vec<u32>,
     pub template_timeout_secs: u64,
 }
 
@@ -31,9 +32,9 @@ impl Default for ConfigFile {
             p2pool_enabled: false,
             http_server_enabled: true,
             http_server_port: 18000,
-            // In range 1-1000
-            gpu_percentage: 1000,
-            grid_size: 1000,
+            block_size: 896,
+            single_grid_size: 1024,
+            per_device_grid_sizes: vec![],
             template_timeout_secs: 1,
         }
     }
