@@ -171,12 +171,12 @@ impl EngineImpl for OpenClEngine {
 
             let batch_size = 1 << 19; // According to tests, but we can try work this out
             let global_dimensions = [batch_size as usize];
-            let max_workgroups = Device::new(context.context.devices()[0]).max_work_group_size().unwrap();
+            // let max_workgroups = Device::new(context.context.devices()[0]).max_work_group_size().unwrap();
             // dbg!(max_compute);
             // let max_work_items = queue.max_work_item_dimensions();
             // dbg!(max_work_items);
             // dbg!("here");
-            debug!(target: LOG_TARGET, "OpenClEngine: cmax workgroups {:?}", max_workgroups);
+            // debug!(target: LOG_TARGET, "OpenClEngine: cmax workgroups {:?}", max_workgroups);
 
             let mut buffer =
                 match Buffer::<cl_ulong>::create(&context.context, CL_MEM_READ_ONLY, data.len(), ptr::null_mut()) {

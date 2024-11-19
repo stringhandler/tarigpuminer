@@ -608,7 +608,6 @@ fn run_thread<T: EngineImpl>(
                         println!("Error submitting block: {:?}", e);
                     },
                 }
-                debug!(target: LOG_TARGET, "Inside thread loop (nonce) break {:?}", num_threads);
                 break;
             }
             debug!(target: LOG_TARGET, "Inside thread loop break {:?}", num_threads);
@@ -662,6 +661,7 @@ async fn get_template(
             .try_into()
             .map_err(|s: String| anyhow!(s))?;
         let mining_hash = header.mining_hash().clone();
+        header.timestamp = EpochTime::now();
         info!(target: LOG_TARGET,
             "block result target difficulty: {}, block timestamp: {}, mining_hash: {}",
             block_result.target_difficulty.to_string(),

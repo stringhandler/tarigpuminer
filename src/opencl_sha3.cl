@@ -35,6 +35,8 @@ kernel void sha3(global ulong *buffer,
                  uint num_rounds, global ulong *output_1
                 ) {
 
+output_1[0] = 0;
+output_1[1] = 0;
 ulong state[25];
 for (uint i = 0;i< num_rounds; i++) {
 
