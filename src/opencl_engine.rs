@@ -323,6 +323,7 @@ impl FunctionImpl for OpenClFunction {
 
     fn suggested_launch_configuration(&self, device: &Self::Device) -> Result<(u32, u32), anyhow::Error> {
         let kernel = Kernel::create(&self.program, "sha3")?;
+        // let threads = device.max_compute_units()? as u32;
         Ok((kernel.get_work_group_size(device.id())? as u32, 1000))
         // self.program.build(vec![&device], "")?.Ok((1000, 1000))
     }

@@ -1,4 +1,5 @@
-use crate::gpu_status_file::GpuStatus;
+use std::time::Instant;
+
 use anyhow::Error;
 #[cfg(feature = "nvidia")]
 use cust::{
@@ -7,10 +8,9 @@ use cust::{
     module::{ModuleJitOption, ModuleJitOption::DetermineTargetFromContext},
     prelude::{Module, *},
 };
-use log::{error, info, warn};
-use std::time::Instant;
+use log::{debug, error, info, warn};
 
-use crate::{context_impl::ContextImpl, EngineImpl, FunctionImpl};
+use crate::{context_impl::ContextImpl, gpu_status_file::GpuStatus, EngineImpl, FunctionImpl};
 const LOG_TARGET: &str = "tari::gpuminer::cuda";
 #[derive(Clone)]
 pub struct CudaEngine {}
@@ -38,15 +38,37 @@ impl EngineImpl for CudaEngine {
 
     fn detect_devices(&self) -> Result<Vec<GpuStatus>, anyhow::Error> {
         let num_devices = Device::num_devices()?;
+        let mut total_devices = 0;
         let mut devices = Vec::with_capacity(num_devices as usize);
         for i in 0..num_devices {
             let device = Device::get_device(i)?;
             let name = device.name()?;
-            let gpu = GpuStatus {
-                device_name: name,
+            let mut gpu = GpuStatus {
+                device_name: name.clone(),
                 is_available: true,
+                block_size: 0,
+                device_index: i,
+                grid_size: 0,
+                max_grid_size: device.get_attribute(DeviceAttribute::MaxGridDimX).unwrap_or_default() as u32,
             };
-            devices.push(gpu);
+            if let Ok(context) = self
+                .create_context(u32::try_from(i).unwrap())
+                .inspect_err(|e| error!(target: LOG_TARGET, "Could not create context {:?}", e))
+            {
+                if let Ok(func) = self
+                    .create_main_function(&context)
+                    .inspect_err(|e| error!(target: LOG_TARGET, "Could not create function {:?}", e))
+                {
+                    if let Ok((grid, block)) = func.suggested_launch_configuration(&(i as usize)) {
+                        gpu.grid_size = grid;
+                        gpu.block_size = block;
+                    }
+                    devices.push(gpu);
+                    total_devices += 1;
+                    debug!(target: LOG_TARGET, "Device nr {:?}: {}", total_devices, name);
+                    println!("Device nr {:?}: {}", total_devices, name);
+                }
+            }
         }
         if devices.len() > 0 {
             return Ok(devices);
@@ -63,10 +85,9 @@ impl EngineImpl for CudaEngine {
 
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {
         info!(target: LOG_TARGET, "Create CUDA main function");
-        let module = Module::from_ptx(
-            include_str!("../cuda/keccak.ptx"),
-            &[ModuleJitOption::GenerateLineInfo(true)],
-        )?;
+        let module = Module::from_ptx(include_str!("../cuda/keccak.ptx"), &[
+            ModuleJitOption::GenerateLineInfo(true),
+        ])?;
         // let func = context.module.get_function("keccakKernel")?;
         Ok(CudaFunction { module })
     }
@@ -148,10 +169,11 @@ pub struct CudaFunction {
     module: Module,
 }
 impl FunctionImpl for CudaFunction {
-    fn suggested_launch_configuration(&self) -> Result<(u32, u32), anyhow::Error> {
+    type Device = usize;
+
+    fn suggested_launch_configuration(&self, device: &Self::Device) -> Result<(u32, u32), anyhow::Error> {
         let func = self.module.get_function("keccakKernel")?;
-        let (grid_size, block_size) = func.suggested_launch_configuration(0, 0.into())?;
-        // Ok((grid_size, block_size))
-        Ok((1000, 100))
+        let (grid_size, block_size) = func.suggested_launch_configuration(*device, 0.into())?;
+        Ok((grid_size, block_size))
     }
 }
