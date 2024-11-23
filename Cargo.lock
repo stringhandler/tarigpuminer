@@ -297,15 +297,6 @@ dependencies = [
 
 [[package]]
 name = "base58-monero"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "935c90240f9b7749c80746bf88ad9cb346f34b01ee30ad4d566dfdecd6e3cc6a"
-dependencies = [
- "thiserror",
-]
-
-[[package]]
-name = "base58-monero"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "978e81a45367d2409ecd33369a45dda2e9a3ca516153ec194de1fbda4b9fb79d"
@@ -1403,9 +1394,9 @@ dependencies = [
 
 [[package]]
 name = "hickory-proto"
-version = "0.25.0-alpha.3"
+version = "0.25.0-alpha.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "993f9d675890080b3bab88e475e6a0db4fe96b39b2fbd42a72eb315dc9009798"
+checksum = "8270a1857fb962b9914aafd46a89a187a4e63d0eb4190c327e7c7b8256a2d055"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -1423,6 +1414,7 @@ dependencies = [
  "rand",
  "ring",
  "rustls",
+ "rustls-pemfile",
  "thiserror",
  "time",
  "tinyvec",
@@ -2170,7 +2162,7 @@ version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f25218523ad4a171ddda05251669afb788cdc2f0df94082aab856a2b09541c3f"
 dependencies = [
- "base58-monero 2.0.0",
+ "base58-monero",
  "curve25519-dalek",
  "fixed-hash",
  "hex",
@@ -3918,15 +3910,8 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c1bb0e5d1d812f2be2d6ad861caad68f75adb5b2e8376264850300deb16ddc7"
 dependencies = [
- "base58-monero 0.3.2",
- "base64 0.13.1",
- "bincode",
  "generic-array",
- "newtype-ops",
- "serde",
- "serde_json",
  "snafu",
- "subtle",
  "zeroize",
 ]
 
@@ -3936,7 +3921,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "539470532a8ca1a8a1aa26f6240586f7d0f7d90ab94ae67f092bcd75a1bb4060"
 dependencies = [
- "base58-monero 2.0.0",
+ "base58-monero",
  "base64 0.13.1",
  "bincode",
  "borsh",
@@ -4826,13 +4811,14 @@ dependencies = [
 
 [[package]]
 name = "xtrgpuminer"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "axum",
  "clap 4.5.21",
  "cust",
  "hickory-client",
+ "hickory-proto",
  "hickory-resolver",
  "libsqlite3-sys",
  "log",
@@ -4854,7 +4840,7 @@ dependencies = [
  "tari_key_manager",
  "tari_script",
  "tari_shutdown",
- "tari_utilities 0.7.0",
+ "tari_utilities 0.8.0",
  "thiserror",
  "tokio",
  "tonic",
