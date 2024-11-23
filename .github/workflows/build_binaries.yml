@@ -200,13 +200,20 @@ jobs:
           echo "SHARUN=pwsh $GITHUB_WORKSPACE\psutils\shasum.ps1 --algorithm 256" >> $GITHUB_ENV
           #  vcpkg.exe install sqlite3:x64-windows zlib:x64-windows
           # Bug in choco - need to install each package individually
-          choco upgrade llvm -y
+          #choco upgrade llvm -y
           choco upgrade protoc -y
-          choco install openssl -y
+          # openssl install stupidness
+          #choco install openssl -y
+          #echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >> $GITHUB_ENV
           # choco upgrade opencl-intel-cpu-runtime -y
           vcpkg.exe --triplet=x64-windows install opencl
-          # openssl install stupidness
-          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >> $GITHUB_ENV
+          # Needed for openssl via vcpkg
+          vcpkg install openssl:x64-windows-static
+          echo "VCPKG_ROOT=C:\vcpkg" >> $GITHUB_ENV
+          echo "OPENSSL_DIR=C:\vcpkg\packages\openssl_x64-windows-static" >> $GITHUB_ENV
+          #echo "OPENSSL_STATIC=Yes" >> $GITHUB_ENV
+          #echo "VCPKGRS_DYNAMIC=1" >> $GITHUB_ENV
+          rustup target add ${{ matrix.builds.target }}
 
       - name: Install and setup cargo cross
         if: ${{ matrix.builds.cross }}
@@ -254,7 +261,7 @@ jobs:
             ${{ matrix.builds.flags }} \
             --bin ${{ env.TS_FILENAME }}
 
-      - name: Build release binaries
+      - name: Build release binaries (info)
         if: ${{ false }}
         shell: bash
         run: |
