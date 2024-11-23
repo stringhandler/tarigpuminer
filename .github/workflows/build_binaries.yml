@@ -211,7 +211,7 @@ jobs:
           vcpkg.exe integrate install
           set VCPKGRS_DYNAMIC=1
           set OPENSSL_DIR=C:\vcpkg\packages\openssl_x64-windows
-          echo OPENSSL_DIR=%OPENSSL_DIR% >> $GITHUB_ENV
+          echo OPENSSL_DIR=C:\vcpkg\packages\openssl_x64-windows >> $GITHUB_ENV
 
 
       - name: Install and setup cargo cross
