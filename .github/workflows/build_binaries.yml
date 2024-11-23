@@ -206,13 +206,7 @@ jobs:
           # choco upgrade opencl-intel-cpu-runtime -y
           vcpkg.exe --triplet=x64-windows install opencl
           # openssl install stupidness
-          vcpkg.exe install openssl:x64-windows
-          vcpkg.exe install openssl:x64-windows-static
-          vcpkg.exe integrate install
-          set VCPKGRS_DYNAMIC=1
-          set OPENSSL_DIR=C:\vcpkg\packages\openssl_x64-windows
-          echo OPENSSL_DIR=C:\vcpkg\packages\openssl_x64-windows >> $GITHUB_ENV
-
+          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >> $GITHUB_ENV
 
       - name: Install and setup cargo cross
         if: ${{ matrix.builds.cross }}
