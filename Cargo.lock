@@ -1384,9 +1384,9 @@ checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
 
 [[package]]
 name = "hickory-client"
-version = "0.25.0-alpha.3"
+version = "0.25.0-alpha.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7109e03382e0ac06e399546e11a793aa02e570cd249faf3cb4fa6bfe292ad323"
+checksum = "90078f18923f3a7663f62fbd43c4030de758d16efae0071cdf3ef9c6358cbf49"
 dependencies = [
  "cfg-if",
  "data-encoding",
@@ -1434,9 +1434,9 @@ dependencies = [
 
 [[package]]
 name = "hickory-resolver"
-version = "0.25.0-alpha.3"
+version = "0.25.0-alpha.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0eec9ac701a9b34a77c8ccbe39d589db876290f6bdc6e05ac118fd114cb1ad26"
+checksum = "46c110355b5703070d9e29c344d79818a7cde3de9c27fc35750defea6074b0ad"
 dependencies = [
  "cfg-if",
  "futures-util",
@@ -4826,12 +4826,14 @@ dependencies = [
 
 [[package]]
 name = "xtrgpuminer"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "axum",
  "clap 4.5.21",
  "cust",
+ "hickory-client",
+ "hickory-resolver",
  "libsqlite3-sys",
  "log",
  "log4rs",

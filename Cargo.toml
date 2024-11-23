@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "xtrgpuminer"
-version = "0.2.0"
+version = "0.2.1"
 
 [dependencies]
 anyhow = "*"
@@ -22,6 +22,8 @@ tari_script = {git = "http://github.com/tari-project/tari"}
 tari_shutdown = {git = "https://github.com/tari-project/tari.git"}
 tari_utilities = "0.7"
 
+hickory-client = {version = "=0.25.0-alpha.2", features = ["dns-over-rustls"]}
+hickory-resolver = "=0.25.0-alpha.2"
 libsqlite3-sys = {version = "0.25.1", features = ["bundled"]}
 prost = "0.13.3"
 prost-types = "0.13.3"
