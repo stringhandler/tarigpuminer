@@ -205,7 +205,11 @@ jobs:
           choco install openssl -y
           # choco upgrade opencl-intel-cpu-runtime -y
           vcpkg.exe --triplet=x64-windows install opencl
-          vcpkg.exe --triplet=x64-windows install openssl
+          # openssl install stupidness
+          vcpkg.exe install openssl:x64-windows
+          vcpkg.exe install openssl:x64-windows-static
+          vcpkg.exe integrate install
+          set VCPKGRS_DYNAMIC=1
 
       - name: Install and setup cargo cross
         if: ${{ matrix.builds.cross }}
