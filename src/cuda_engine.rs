@@ -103,6 +103,7 @@ impl EngineImpl for CudaEngine {
         block_size: u32,
         grid_size: u32,
     ) -> Result<(Option<u64>, u32, u64), Error> {
+        // println!("CUDA: start mining");
         info!(target: LOG_TARGET, "CUDA: start mining");
         let output = vec![0u64; 5];
         let mut output_buf = output.as_slice().as_dbuf()?;
