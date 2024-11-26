@@ -1,3 +1,4 @@
+use core::ffi::c_void;
 use std::{
     io::Read,
     ptr,
@@ -11,7 +12,7 @@ use opencl3::{
     context::Context,
     device::{Device, CL_DEVICE_TYPE_GPU},
     kernel::{ExecuteKernel, Kernel},
-    memory::{Buffer, CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY},
+    memory::{Buffer, CL_MEM_COPY_HOST_PTR, CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY},
     platform::{get_platforms, Platform},
     program::Program,
     types::{cl_ulong, CL_TRUE},
@@ -169,8 +170,8 @@ impl EngineImpl for OpenClEngine {
 
             debug!(target: LOG_TARGET, "OpenClEngine: created queue");
 
-            let batch_size = 1 << 19; // According to tests, but we can try work this out
-            let global_dimensions = [batch_size as usize];
+            // let batch_size = 1 << 19; // According to tests, but we can try work this out
+            // let global_dimensions = [batch_size as usize];
             // let max_workgroups = Device::new(context.context.devices()[0]).max_work_group_size().unwrap();
             // dbg!(max_compute);
             // let max_work_items = queue.max_work_item_dimensions();
@@ -195,14 +196,19 @@ impl EngineImpl for OpenClEngine {
             };
 
             debug!(target: LOG_TARGET, "OpenClEngine: buffer created",);
-            let output_buffer =
-                match Buffer::<cl_ulong>::create(&context.context, CL_MEM_WRITE_ONLY, 2, ptr::null_mut()) {
-                    Ok(buffer) => buffer,
-                    Err(e) => {
-                        error!(target: LOG_TARGET, "OpenClEngine: failed to create output buffer: {}", e);
-                        return Err(e.into());
-                    },
-                };
+            let initial_output = vec![0u64, 0u64];
+            let output_buffer = match Buffer::<cl_ulong>::create(
+                &context.context,
+                CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,
+                2,
+                initial_output.as_ptr() as *mut c_void,
+            ) {
+                Ok(buffer) => buffer,
+                Err(e) => {
+                    error!(target: LOG_TARGET, "OpenClEngine: failed to create output buffer: {}", e);
+                    return Err(e.into());
+                },
+            };
             // dbg!(block_size);
             // dbg!(grid_size);
             debug!(target: LOG_TARGET, "OpenClEngine: output buffer created",);
@@ -243,9 +249,9 @@ impl EngineImpl for OpenClEngine {
             queue.finish()?;
 
             let mut output = vec![0u64, 0u64];
-            debug!(target: LOG_TARGET, "OpenClEngine: mine output {:?}", output[0] > 0);
             queue.enqueue_read_buffer(&output_buffer, CL_TRUE, 0, output.as_mut_slice(), &[])?;
             if output[0] > 0 {
+                println!("output and diff {:?} {:?}", output[0], u64::MAX / output[1]);
                 return Ok((
                     Some(output[0]),
                     grid_size * block_size * num_iterations,
