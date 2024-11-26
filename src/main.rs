@@ -514,7 +514,7 @@ fn run_thread<T: EngineImpl>(
                 debug!(target: LOG_TARGET, "Elapsed {:?} > {:?}", elapsed.elapsed().as_secs(), config.template_refresh_secs );
                 break;
             }
-            let num_iterations = 16;
+            let num_iterations = 1;
             let result = gpu_engine.mine(
                 &gpu_function,
                 &context,
