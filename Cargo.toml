@@ -5,39 +5,36 @@ version = "0.2.9"
 
 [dependencies]
 anyhow = "*"
-clap = {version = "4.5.0", features = ["derive"]}
-minotari_app_grpc = {git = "http://github.com/tari-project/tari"}
+clap = { version = "4.5.0", features = ["derive"] }
+minotari_app_grpc = { git = "http://github.com/tari-project/tari" }
 num-format = "0.4.4"
-serde = {version = "1.0.130", features = ["derive"]}
+serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0.68"
 sha3 = "0.10"
-tari_common = {git = "http://github.com/tari-project/tari"}
-tari_common_types = {git = "http://github.com/tari-project/tari"}
-tari_core = {git = "https://github.com/tari-project/tari", default-features = false, features = [
+tari_common = { git = "http://github.com/tari-project/tari" }
+tari_common_types = { git = "http://github.com/tari-project/tari" }
+tari_core = { git = "https://github.com/tari-project/tari", default-features = false, features = [
   "transactions",
-]}
-tari_crypto = {version = "0.20.3", features = ["borsh"]}
-tari_key_manager = {git = "http://github.com/tari-project/tari"}
-tari_script = {git = "http://github.com/tari-project/tari"}
-tari_shutdown = {git = "https://github.com/tari-project/tari.git"}
+] }
+tari_crypto = { version = "0.20.3", features = ["borsh"] }
+tari_key_manager = { git = "http://github.com/tari-project/tari" }
+tari_script = { git = "http://github.com/tari-project/tari" }
+tari_shutdown = { git = "https://github.com/tari-project/tari.git" }
 tari_utilities = "0.8"
 
-hickory-client = {version = "=0.25.0-alpha.2", features = ["dns-over-rustls"]}
-hickory-proto = "=0.25.0-alpha.2"
-hickory-resolver = "=0.25.0-alpha.2"
-libsqlite3-sys = {version = "0.25.1", features = ["bundled"]}
+libsqlite3-sys = { version = "0.25.1", features = ["bundled"] }
 prost = "0.13.3"
 prost-types = "0.13.3"
 rand = "0.8"
-tokio = {version = "1.36", features = ["full"]}
-tonic = {version = "0.12.3"}
+tokio = { version = "1.36", features = ["full"] }
+tonic = { version = "0.12.3" }
 
 axum = "0.7.5"
-cust = {version = "0.3.2", optional = true}
+cust = { version = "0.3.2", optional = true }
 log = "0.4.22"
 log4rs = "1.3.0"
 opencl-sys = "*"
-opencl3 = {version = "0.9.5", optional = true}
+opencl3 = { version = "0.9.5", optional = true }
 thiserror = "1.0.63"
 
 [features]
