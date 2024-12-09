@@ -19,6 +19,8 @@ pub(crate) struct ConfigFile {
     pub single_grid_size: u32,
     pub per_device_grid_sizes: Vec<u32>,
     pub template_timeout_secs: u64,
+    #[serde(default = "default_max_template_failures")]
+    pub max_template_failures: u64,
 }
 
 impl Default for ConfigFile {
@@ -36,6 +38,7 @@ impl Default for ConfigFile {
             single_grid_size: 1024,
             per_device_grid_sizes: vec![],
             template_timeout_secs: 1,
+            max_template_failures: 10,
         }
     }
 }
@@ -53,4 +56,8 @@ impl ConfigFile {
         serde_json::to_writer_pretty(file, self)?;
         Ok(())
     }
+}
+
+fn default_max_template_failures() -> u64 {
+    10
 }
