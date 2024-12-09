@@ -147,6 +147,7 @@ kernel void sha3(global ulong *buffer, ulong nonce_start, ulong difficulty,
 
     // check difficulty
     ulong swap = swap_endian_64(state[0]);
+    barrier(CLK_GLOBAL_MEM_FENCE);
     if (swap < difficulty) {
       if (output_1[1] == 0 || output_1[1] > swap) {
         output_1[0] = nonce_start + get_global_id(0) + i * get_global_size(0);
