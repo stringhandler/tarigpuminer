@@ -3,14 +3,16 @@ use std::{
     cmp,
     convert::TryInto,
     env::current_dir,
-    fs,
-    fs::File,
+    fs::{self, File},
     io::Write,
     panic,
     path::PathBuf,
     process,
     str::FromStr,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -43,7 +45,7 @@ use tari_core::{
         transaction_components::{CoinBaseExtra, RangeProofType},
     },
 };
-use tari_shutdown::Shutdown;
+use tari_shutdown::{Shutdown, ShutdownSignal};
 use tari_utilities::epoch_time::EpochTime;
 use tokio::{
     runtime::Runtime,
@@ -371,94 +373,6 @@ async fn main_inner() -> Result<(), anyhow::Error> {
             devices_to_use, num_devices
         );
 
-        if cli.find_optimal {
-            let mut best_hashrate = 0;
-            let mut best_grid_size = 1;
-            let mut current_grid_size = 32;
-            let mut is_doubling_stage = true;
-            let mut last_grid_size_increase = 0;
-            let mut prev_hashrate = 0;
-
-            while true {
-                dbg!("here");
-                let mut config = config.clone();
-                config.single_grid_size = current_grid_size;
-                // config.block_size = ;
-                let mut threads = vec![];
-                let (tx, rx) = tokio::sync::broadcast::channel(100);
-                for i in 0..num_devices {
-                    if !devices_to_use.contains(&i) {
-                        continue;
-                    }
-                    let c = config.clone();
-                    let gpu = gpu_engine.clone();
-                    let x = tx.clone();
-                    threads.push(thread::spawn(move || {
-                        run_thread(gpu, num_devices as u64, i as u32, c, true, x)
-                    }));
-                }
-                let thread_len = threads.len();
-                let mut thread_hashrate = Vec::with_capacity(thread_len);
-                for t in threads {
-                    match t.join() {
-                        Ok(res) => match res {
-                            Ok(hashrate) => {
-                                info!(target: LOG_TARGET, "Thread join succeeded: {}", hashrate.to_formatted_string(&Locale::en));
-                                thread_hashrate.push(hashrate);
-                            },
-                            Err(err) => {
-                                eprintln!("Thread join succeeded but result failed: {:?}", err);
-                                error!(target: LOG_TARGET, "Thread join succeeded but result failed: {:?}", err);
-                            },
-                        },
-                        Err(err) => {
-                            eprintln!("Thread join failed: {:?}", err);
-                            error!(target: LOG_TARGET, "Thread join failed: {:?}", err);
-                        },
-                    }
-                }
-                let total_hashrate: u64 = thread_hashrate.iter().sum();
-                if total_hashrate > best_hashrate {
-                    best_hashrate = total_hashrate;
-                    best_grid_size = current_grid_size;
-                    // best_grid_size = config.single_grid_size;
-                    // best_block_size = config.block_size;
-                    println!(
-                        "Best hashrate: {} grid_size: {}, current_grid: {} block_size: {} Prev Hash {}",
-                        best_hashrate, best_grid_size, current_grid_size, config.block_size, prev_hashrate
-                    );
-                }
-                // if total_hashrate < prev_hashrate {
-                //     println!("total decreased, breaking");
-                //     break;
-                // }
-                if is_doubling_stage {
-                    if total_hashrate > prev_hashrate {
-                        last_grid_size_increase = current_grid_size;
-                        current_grid_size = current_grid_size * 2;
-                    } else {
-                        is_doubling_stage = false;
-                        last_grid_size_increase = last_grid_size_increase / 2;
-                        current_grid_size = current_grid_size.saturating_sub(last_grid_size_increase);
-                    }
-                } else {
-                    // Bisecting stage
-                    if last_grid_size_increase < 2 {
-                        break;
-                    }
-                    if total_hashrate > prev_hashrate {
-                        last_grid_size_increase = last_grid_size_increase / 2;
-                        current_grid_size += last_grid_size_increase;
-                    } else {
-                        last_grid_size_increase = last_grid_size_increase / 2;
-                        current_grid_size = current_grid_size.saturating_sub(last_grid_size_increase);
-                    }
-                }
-                prev_hashrate = total_hashrate;
-            }
-            return Ok(());
-        }
-
         if let Some(max_template_failures) = cli.max_template_failures {
             config.max_template_failures = max_template_failures as u64;
         }
@@ -599,6 +513,18 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         }
 
         let mut threads = vec![];
+
+        let current_template_height = Arc::new(AtomicU64::new(0));
+
+        if num_devices > 0 && !benchmark {
+            let c = config.clone();
+            let s = shutdown.to_signal();
+            threads.push(thread::spawn(move || {
+                let runtime = Runtime::new().unwrap();
+                runtime.block_on(async { run_template_height_watcher(current_template_height, c, s).await })
+            }));
+        }
+
         for i in 0..num_devices {
             println!("Device index: {}", i);
             if devices_to_use.contains(&i) {
@@ -646,6 +572,73 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
         Ok(())
     }
+}
+
+async fn run_template_height_watcher(
+    curr_height: Arc<AtomicU64>,
+    config: ConfigFile,
+    shutdown: ShutdownSignal,
+) -> Result<u64, anyhow::Error> {
+    let client_type = if config.p2pool_enabled {
+        ClientType::P2Pool(TariAddress::from_str(config.tari_address.as_str()).unwrap())
+    } else {
+        ClientType::BaseNode
+    };
+
+    let mut node_client = node_client::create_client(client_type, &config.tari_node_url, config.coinbase_extra)
+        .await
+        .unwrap();
+
+    let template = tokio::time::timeout(
+        std::time::Duration::from_secs(config.template_timeout_secs),
+        node_client.get_block_template(),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+
+    curr_height.store(
+        template
+            .new_block_template
+            .as_ref()
+            .and_then(|b| b.header.as_ref())
+            .map(|h| h.height)
+            .unwrap_or(0),
+        Ordering::SeqCst,
+    );
+    loop {
+        if shutdown.is_triggered() {
+            break;
+        }
+        let template = match tokio::time::timeout(
+            std::time::Duration::from_secs(config.template_timeout_secs),
+            node_client.get_block_template(),
+        )
+        .await
+        {
+            Ok(Ok(template)) => template,
+            Ok(Err(e)) => {
+                error!(target: LOG_TARGET, "Error getting block template: {:?}", e);
+                continue;
+            },
+            Err(e) => {
+                error!(target: LOG_TARGET, "Timeout getting block template: {:?}", e);
+                continue;
+            },
+        };
+
+        let height = template
+            .new_block_template
+            .as_ref()
+            .and_then(|b| b.header.as_ref())
+            .map(|h| h.height)
+            .unwrap_or(0);
+        if height > curr_height.load(Ordering::SeqCst) {
+            curr_height.store(height, Ordering::SeqCst);
+        }
+        sleep(Duration::from_secs(config.height_check_secs)).await;
+    }
+    Ok(0)
 }
 
 fn run_thread<T: EngineImpl>(
