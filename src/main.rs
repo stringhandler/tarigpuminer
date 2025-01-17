@@ -55,6 +55,9 @@ use tokio::{
 use crate::cuda_engine::CudaEngine;
 #[cfg(feature = "opencl3")]
 use crate::opencl_engine::OpenClEngine;
+#[cfg(feature = "metal")]
+use crate::metal_engine::MetalEngine;
+
 use crate::{
     config_file::ConfigFile,
     engine_impl::EngineImpl,
@@ -69,6 +72,7 @@ use crate::{
 
 mod config_file;
 mod context_impl;
+
 #[cfg(feature = "nvidia")]
 mod cuda_engine;
 mod engine_impl;
@@ -77,11 +81,15 @@ mod gpu_engine;
 mod gpu_status_file;
 mod http;
 mod node_client;
+
 #[cfg(feature = "opencl3")]
 mod opencl_engine;
 mod p2pool_client;
 mod stats_store;
 mod tari_coinbase;
+
+#[cfg(feature = "metal")]
+mod metal_engine;
 
 const LOG_TARGET: &str = "tari::gpuminer";
 
@@ -219,13 +227,16 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         process::exit(1);
     }
 
+    #[cfg(feature = "metal")]
+    let mut gpu_engine = GpuEngine::new(MetalEngine::new());
+
     #[cfg(feature = "nvidia")]
     let mut gpu_engine = GpuEngine::new(CudaEngine::new());
 
     #[cfg(feature = "opencl3")]
     let mut gpu_engine = GpuEngine::new(OpenClEngine::new());
 
-    #[cfg(any(feature = "nvidia", feature = "opencl3"))]
+    #[cfg(any(feature = "nvidia", feature = "opencl3", feature = "metal"))]
     {
         gpu_engine.init().unwrap();
 
