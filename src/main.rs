@@ -53,11 +53,10 @@ use tokio::{
 
 #[cfg(feature = "nvidia")]
 use crate::cuda_engine::CudaEngine;
-#[cfg(feature = "opencl3")]
-use crate::opencl_engine::OpenClEngine;
 #[cfg(feature = "metal")]
 use crate::metal_engine::MetalEngine;
-
+#[cfg(feature = "opencl3")]
+use crate::opencl_engine::OpenClEngine;
 use crate::{
     config_file::ConfigFile,
     engine_impl::EngineImpl,
