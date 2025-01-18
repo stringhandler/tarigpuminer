@@ -27,6 +27,11 @@ static LIBRARY_SRC: &str = include_str!("./metal_sha3.metal");
 pub struct MetalContext {
     context: Device,
 }
+impl MetalContext {
+    pub fn new(context: Device) -> Self {
+        MetalContext { context }
+    }
+}
 impl ContextImpl for MetalContext {}
 
 pub struct MetalFunction {
@@ -46,7 +51,14 @@ impl FunctionImpl for MetalFunction {
         Ok((block_size, grid_size))
     }
 }
+
+#[derive(Clone)]
 pub struct MetalEngine {}
+impl MetalEngine {
+    pub fn new() -> Self {
+        MetalEngine {}
+    }
+}
 
 impl EngineImpl for MetalEngine {
     type Context = MetalContext;
@@ -67,32 +79,34 @@ impl EngineImpl for MetalEngine {
 
         let all_devices = Device::all();
 
-        for device in all_devices {
+        for (id, device) in all_devices.into_iter().enumerate() {
             let mut gpu_device = GpuStatus {
                 device_name: device.name().to_string(),
-                device_index: device.registry_id() as u32,
+                device_index: id as u32,
                 is_available: true,
                 max_grid_size: device.max_threadgroup_memory_length() as u32,
                 grid_size: 0,
                 block_size: 0,
             };
 
-            let context = MetalContext { context: device };
-
-            if let Ok(function) = self.create_main_function(&context).inspect_err(|error| {
-                debug!("Failed to create main function: {:?}", error);
+            if let Ok(context) = self.create_context(gpu_device.device_index).inspect_err(|error| {
+                debug!("Failed to create context: {:?}", error);
             }) {
-                if let Ok((block_size, grid_size)) = function
-                    .suggested_launch_configuration(&context.context)
-                    .inspect_err(|error| {
-                        debug!("Failed to get suggested launch configuration: {:?}", error);
-                    })
-                {
-                    gpu_device.block_size = block_size;
-                    gpu_device.grid_size = grid_size;
+                if let Ok(function) = self.create_main_function(&context).inspect_err(|error| {
+                    debug!("Failed to create main function: {:?}", error);
+                }) {
+                    if let Ok((block_size, grid_size)) = function
+                        .suggested_launch_configuration(&context.context)
+                        .inspect_err(|error| {
+                            debug!("Failed to get suggested launch configuration: {:?}", error);
+                        })
+                    {
+                        gpu_device.block_size = block_size;
+                        gpu_device.grid_size = grid_size;
+                    }
+                    gpu_devices.push(gpu_device);
+                    total_devices += 1;
                 }
-                gpu_devices.push(gpu_device);
-                total_devices += 1;
             }
         }
 
@@ -104,7 +118,12 @@ impl EngineImpl for MetalEngine {
     }
 
     fn create_context(&self, device_index: u32) -> Result<Self::Context, anyhow::Error> {
-        todo!()
+        let all_devices = Device::all();
+        let device = all_devices.get(device_index as usize).unwrap_or_else(|| {
+            panic!("Failed to get device with index: {}", device_index);
+        });
+
+        Ok(MetalContext::new(device.clone()))
     }
 
     fn create_main_function(&self, context: &Self::Context) -> Result<Self::Function, anyhow::Error> {

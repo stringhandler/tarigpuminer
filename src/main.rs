@@ -220,7 +220,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
     let submit = true;
 
-    #[cfg(not(any(feature = "nvidia", feature = "opencl3")))]
+    #[cfg(not(any(feature = "nvidia", feature = "opencl3", feature = "metal")))]
     {
         eprintln!("No GPU engine available");
         process::exit(1);
