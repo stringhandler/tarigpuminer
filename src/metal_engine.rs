@@ -151,31 +151,31 @@ impl EngineImpl for MetalEngine {
         let command_queue = context.context.new_command_queue();
         let command_buffer = command_queue.new_command_buffer();
 
-        let counter_sample_buffer_desc = metal::CounterSampleBufferDescriptor::new();
-        counter_sample_buffer_desc.set_storage_mode(metal::MTLStorageMode::Shared);
-        counter_sample_buffer_desc.set_sample_count(NUM_SAMPLES);
-        let counter_sets = context.context.counter_sets();
+        // let counter_sample_buffer_desc = metal::CounterSampleBufferDescriptor::new();
+        // counter_sample_buffer_desc.set_storage_mode(metal::MTLStorageMode::Shared);
+        // counter_sample_buffer_desc.set_sample_count(NUM_SAMPLES);
+        // let counter_sets = context.context.counter_sets();
 
-        let timestamp_counter = counter_sets.iter().find(|cs| cs.name() == "timestamp");
+        // let timestamp_counter = counter_sets.iter().find(|cs| cs.name() == "timestamp");
 
-        counter_sample_buffer_desc.set_counter_set(timestamp_counter.expect("No timestamp counter found"));
-        let counter_sample_buffer = context
-            .context
-            .new_counter_sample_buffer_with_descriptor(&counter_sample_buffer_desc)
-            .unwrap();
+        // counter_sample_buffer_desc.set_counter_set(timestamp_counter.expect("No timestamp counter found"));
+        // let counter_sample_buffer = context
+        //     .context
+        //     .new_counter_sample_buffer_with_descriptor(&counter_sample_buffer_desc)
+        //     .unwrap();
 
-        let compute_pass_descriptor = ComputePassDescriptor::new();
+        // let compute_pass_descriptor = ComputePassDescriptor::new();
 
-        let sample_buffer_attachment_descriptor = compute_pass_descriptor
-            .sample_buffer_attachments()
-            .object_at(0)
-            .unwrap();
+        // let sample_buffer_attachment_descriptor = compute_pass_descriptor
+        //     .sample_buffer_attachments()
+        //     .object_at(0)
+        //     .unwrap();
 
-        sample_buffer_attachment_descriptor.set_sample_buffer(&counter_sample_buffer);
-        sample_buffer_attachment_descriptor.set_start_of_encoder_sample_index(0);
-        sample_buffer_attachment_descriptor.set_end_of_encoder_sample_index(1);
+        // sample_buffer_attachment_descriptor.set_sample_buffer(&counter_sample_buffer);
+        // sample_buffer_attachment_descriptor.set_start_of_encoder_sample_index(0);
+        // sample_buffer_attachment_descriptor.set_end_of_encoder_sample_index(1);
 
-        let encoder = command_buffer.compute_command_encoder_with_descriptor(compute_pass_descriptor);
+        let encoder = command_buffer.new_compute_command_encoder();
 
         let pipelione_state_descriptor = ComputePipelineDescriptor::new();
         pipelione_state_descriptor.set_compute_function(Some(&kernel));
@@ -228,10 +228,10 @@ impl EngineImpl for MetalEngine {
         command_buffer.commit();
         command_buffer.wait_until_completed();
 
-        let mut cpu_end: u64 = 0;
-        let mut gpu_end: u64 = 0;
+        // let mut cpu_end: u64 = 0;
+        // let mut gpu_end: u64 = 0;
 
-        context.context.sample_timestamps(&mut cpu_end, &mut gpu_end);
+        // context.context.sample_timestamps(&mut cpu_end, &mut gpu_end);
 
         let ptr = output_buffer.contents() as *mut u32;
         unsafe {
