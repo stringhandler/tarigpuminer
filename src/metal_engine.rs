@@ -1,7 +1,7 @@
 use std::os::raw::c_void;
 
 use anyhow::Context;
-use log::debug;
+use log::{debug,info};
 use metal::{
     ArgumentDescriptor,
     CompileOptions,
@@ -11,7 +11,7 @@ use metal::{
     Function,
     Library,
     MTLResourceOptions,
-    MTLSize,
+    MTLSize, NSUInteger,
 };
 
 use crate::{
@@ -21,7 +21,7 @@ use crate::{
     gpu_status_file::GpuStatus,
 };
 
-const NUM_SAMPLES: u64 = 2;
+const LOG_TARGET: &str = "tari::gpuminer::metal";
 static LIBRARY_SRC: &str = include_str!("./metal_sha3.metal");
 
 pub struct MetalContext {
@@ -65,7 +65,7 @@ impl EngineImpl for MetalEngine {
     type Function = MetalFunction;
 
     fn init(&mut self) -> Result<(), anyhow::Error> {
-        debug!("MetalEngine: Initializing");
+        debug!(target: LOG_TARGET,"MetalEngine: Initializing");
         Ok(())
     }
 
@@ -90,15 +90,15 @@ impl EngineImpl for MetalEngine {
             };
 
             if let Ok(context) = self.create_context(gpu_device.device_index).inspect_err(|error| {
-                debug!("Failed to create context: {:?}", error);
+                debug!(target: LOG_TARGET,"Failed to create context: {:?}", error);
             }) {
                 if let Ok(function) = self.create_main_function(&context).inspect_err(|error| {
-                    debug!("Failed to create main function: {:?}", error);
+                    debug!(target: LOG_TARGET,"Failed to create main function: {:?}", error);
                 }) {
                     if let Ok((block_size, grid_size)) = function
                         .suggested_launch_configuration(&context.context)
                         .inspect_err(|error| {
-                            debug!("Failed to get suggested launch configuration: {:?}", error);
+                            debug!(target: LOG_TARGET,"Failed to get suggested launch configuration: {:?}", error);
                         })
                     {
                         gpu_device.block_size = block_size;
@@ -186,14 +186,13 @@ impl EngineImpl for MetalEngine {
             .unwrap();
 
         let sum_data = [
-            1u32, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
-            29, 30,
+            1u32; 4096 as usize
         ];
 
         let data_buffer = context.context.new_buffer_with_data(
             unsafe { std::mem::transmute(sum_data.as_ptr()) },
-            (sum_data.len() * std::mem::size_of::<u64>()) as u64,
-            MTLResourceOptions::StorageModePrivate,
+            (sum_data.len() * std::mem::size_of::<u32>()) as u64,
+            MTLResourceOptions::CPUCacheModeDefaultCache,
         );
 
         let output_buffer = {
@@ -211,7 +210,7 @@ impl EngineImpl for MetalEngine {
         let num_threads = pipeline_state.thread_execution_width();
 
         let thread_group_count = MTLSize {
-            width: grid_size as u64,
+            width: ((4096 as NSUInteger + num_threads) / num_threads) as NSUInteger,
             height: 1,
             depth: 1,
         };
@@ -222,6 +221,7 @@ impl EngineImpl for MetalEngine {
             depth: 1,
         };
 
+        info!(target: LOG_TARGET, "Thread group count: {:?}", thread_group_count.width);
         encoder.dispatch_thread_groups(thread_group_count, thread_group_size);
         encoder.end_encoding();
 
@@ -243,7 +243,7 @@ impl EngineImpl for MetalEngine {
 }
 
 fn create_program_from_source(context: &Device) -> Result<Library, anyhow::Error> {
-    debug!("MetalEngine: Creating program from source");
+    debug!(target: LOG_TARGET,"MetalEngine: Creating program from source");
     let options = CompileOptions::new();
 
     let library = context
