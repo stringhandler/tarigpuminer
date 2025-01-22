@@ -599,6 +599,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         }
 
         let mut threads = vec![];
+        info!(target: LOG_TARGET, "Starting threads for devices: {:?}", num_devices);
         for i in 0..num_devices {
             println!("Device index: {}", i);
             if devices_to_use.contains(&i) {
@@ -607,6 +608,19 @@ async fn main_inner() -> Result<(), anyhow::Error> {
                 let gpu = gpu_engine.clone();
                 let curr_stats_tx = stats_tx.clone();
                 threads.push(thread::spawn(move || {
+                    // let mut data = vec![0u64; 6];
+                    // let context = gpu.create_context(i).unwrap();
+                    // let gpu_function = gpu.get_main_function(&context).unwrap();
+                    // match gpu.mine(&gpu_function, &context, &data, 0, 1, 1, 1, 1) {
+                    //     Ok(_) => {
+                    //         info!(target: LOG_TARGET, "Thread join succeeded");
+                    //         return Ok(0);
+                    //     },
+                    //     Err(err) => {
+                    //         error!(target: LOG_TARGET, "Thread join succeeded but result failed: {:?}", err);
+                    //         return Err(err);
+                    //     },
+                    // }
                     run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_tx)
                 }));
             }
@@ -792,6 +806,7 @@ fn run_thread<T: EngineImpl>(
                             * data_buf.as_device_ptr(),
                             * &output_buf, */
             );
+            info!(target: LOG_TARGET, "Mining result: {:?}", result);
             let (nonce, hashes, diff) = match result {
                 Ok(values) => {
                     debug!(target: LOG_TARGET,

@@ -28,12 +28,12 @@ impl Default for ConfigFile {
         Self {
             tari_address: "f2CWXg4GRNXweuDknxLATNjeX8GyJyQp9GbVG8f81q63hC7eLJ4ZR8cDd9HBcVTjzoHYUtzWZFM3yrZ68btM2wiY7sj"
                 .to_string(),
-            tari_node_url: "http://127.0.0.1:18142".to_string(),
+            tari_node_url: "http://127.0.0.1:51368".to_string(),
             coinbase_extra: "tari_gpu_miner".to_string(),
             template_refresh_secs: 30,
             p2pool_enabled: false,
             http_server_enabled: true,
-            http_server_port: 18000,
+            http_server_port: 53218,
             block_size: 896,
             single_grid_size: 1024,
             per_device_grid_sizes: vec![],
@@ -48,7 +48,7 @@ impl ConfigFile {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let config = serde_json::from_reader(reader)?;
-        Ok(config)
+        Ok(ConfigFile::default())
     }
 
     pub(crate) fn save(&self, path: &Path) -> Result<(), anyhow::Error> {

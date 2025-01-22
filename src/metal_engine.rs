@@ -1,17 +1,9 @@
-use std::os::raw::c_void;
+use std::{mem::transmute, os::raw::c_void};
 
 use anyhow::Context;
-use log::{debug,info};
+use log::{debug, info};
 use metal::{
-    ArgumentDescriptor,
-    CompileOptions,
-    ComputePassDescriptor,
-    ComputePipelineDescriptor,
-    Device,
-    Function,
-    Library,
-    MTLResourceOptions,
-    MTLSize, NSUInteger,
+    objc::rc::autoreleasepool, ArgumentDescriptor, Array, CompileOptions, ComputePassDescriptor, ComputePipelineDescriptor, Device, Function, Library, MTLResourceOptions, MTLResourceUsage, MTLSize, NSUInteger, Texture
 };
 
 use crate::{
@@ -53,10 +45,14 @@ impl FunctionImpl for MetalFunction {
 }
 
 #[derive(Clone)]
-pub struct MetalEngine {}
+pub struct MetalEngine {
+    sum: u32,
+}
 impl MetalEngine {
     pub fn new() -> Self {
-        MetalEngine {}
+        MetalEngine {
+            sum: 0,
+        }
     }
 }
 
@@ -144,101 +140,181 @@ impl EngineImpl for MetalEngine {
         block_size: u32,
         grid_size: u32,
     ) -> Result<(Option<u64>, u32, u64), anyhow::Error> {
-        let kernel = function.program.get_function("sum", None).unwrap_or_else(|error| {
-            panic!("Failed to get function sum: {:?}", error);
-        });
+        info!(target: LOG_TARGET,"MetalEngine: Mining");
+        info!(target: LOG_TARGET,"Data: {:?}", data);
+        info!(target: LOG_TARGET,"Min difficulty: {}", min_difficulty);
+        info!(target: LOG_TARGET,"Nonce start: {}", nonce_start);
+        info!(target: LOG_TARGET,"Num iterations: {}", num_iterations);
 
+      autoreleasepool(|| {
         let command_queue = context.context.new_command_queue();
-        let command_buffer = command_queue.new_command_buffer();
 
-        // let counter_sample_buffer_desc = metal::CounterSampleBufferDescriptor::new();
-        // counter_sample_buffer_desc.set_storage_mode(metal::MTLStorageMode::Shared);
-        // counter_sample_buffer_desc.set_sample_count(NUM_SAMPLES);
-        // let counter_sets = context.context.counter_sets();
-
-        // let timestamp_counter = counter_sets.iter().find(|cs| cs.name() == "timestamp");
-
-        // counter_sample_buffer_desc.set_counter_set(timestamp_counter.expect("No timestamp counter found"));
-        // let counter_sample_buffer = context
-        //     .context
-        //     .new_counter_sample_buffer_with_descriptor(&counter_sample_buffer_desc)
-        //     .unwrap();
-
-        // let compute_pass_descriptor = ComputePassDescriptor::new();
-
-        // let sample_buffer_attachment_descriptor = compute_pass_descriptor
-        //     .sample_buffer_attachments()
-        //     .object_at(0)
-        //     .unwrap();
-
-        // sample_buffer_attachment_descriptor.set_sample_buffer(&counter_sample_buffer);
-        // sample_buffer_attachment_descriptor.set_start_of_encoder_sample_index(0);
-        // sample_buffer_attachment_descriptor.set_end_of_encoder_sample_index(1);
-
-        let encoder = command_buffer.new_compute_command_encoder();
-
-        let pipelione_state_descriptor = ComputePipelineDescriptor::new();
-        pipelione_state_descriptor.set_compute_function(Some(&kernel));
-
-        let pipeline_state = context
-            .context
-            .new_compute_pipeline_state_with_function(pipelione_state_descriptor.compute_function().unwrap())
-            .unwrap();
-
-        let sum_data = [
-            1u32; 4096 as usize
-        ];
-
-        let data_buffer = context.context.new_buffer_with_data(
-            unsafe { std::mem::transmute(sum_data.as_ptr()) },
-            (sum_data.len() * std::mem::size_of::<u32>()) as u64,
+        let buffer = context.context.new_buffer_with_data(
+            unsafe { transmute(data.as_ptr()) },
+            (data.len() * size_of::<u32>()) as u64,
             MTLResourceOptions::CPUCacheModeDefaultCache,
         );
 
-        let output_buffer = {
-            let data2 = [0u32];
+        info!(target: LOG_TARGET,"Creating constants input buffer");
+
+        let min_difficulty = {
+            let min_difficulty_data = [min_difficulty];
             context.context.new_buffer_with_data(
-                unsafe { std::mem::transmute(data2.as_ptr()) },
-                (data2.len() * std::mem::size_of::<u32>()) as u64,
+                unsafe { transmute(min_difficulty_data.as_ptr()) },
+                (min_difficulty_data.len() * size_of::<u32>()) as u64,
                 MTLResourceOptions::CPUCacheModeDefaultCache,
             )
         };
 
-        encoder.set_buffer(0, Some(&data_buffer), 0);
-        encoder.set_buffer(1, Some(&output_buffer), 0);
+        let nonce_start = {
+            let nonce_start_data = [nonce_start];
+            context.context.new_buffer_with_data(
+                unsafe { transmute(nonce_start_data.as_ptr()) },
+                (nonce_start_data.len() * size_of::<u32>()) as u64,
+                MTLResourceOptions::CPUCacheModeDefaultCache,
+            )
+        };
 
-        let num_threads = pipeline_state.thread_execution_width();
+        let num_iterations = {
+            let num_iterations_data = [num_iterations];
+            context.context.new_buffer_with_data(
+                unsafe { transmute(num_iterations_data.as_ptr()) },
+                (num_iterations_data.len() * size_of::<u32>()) as u64,
+                MTLResourceOptions::CPUCacheModeDefaultCache,
+            )
+        };
 
-        let thread_group_count = MTLSize {
-            width: ((4096 as NSUInteger + num_threads) / num_threads) as NSUInteger,
+        info!(target: LOG_TARGET,"Creating sum buffer");
+
+        let output = {
+            let output_data =  vec![0u64, 0u64];
+            context.context.new_buffer_with_data(
+                unsafe { transmute(output_data.as_ptr()) },
+                (output_data.len() * size_of::<u32>()) as u64,
+                MTLResourceOptions::CPUCacheModeDefaultCache,
+            )
+        };
+
+
+        let min_difficulty_argument_descriptor = ArgumentDescriptor::new();
+        min_difficulty_argument_descriptor.set_index(0);
+        min_difficulty_argument_descriptor.set_data_type(metal::MTLDataType::ULong);
+
+        let nonce_start_argument_descriptor = ArgumentDescriptor::new();
+        nonce_start_argument_descriptor.set_index(1);
+        nonce_start_argument_descriptor.set_data_type(metal::MTLDataType::ULong);
+
+        let num_iterations_argument_descriptor = ArgumentDescriptor::new();
+        num_iterations_argument_descriptor.set_index(2);
+        num_iterations_argument_descriptor.set_data_type(metal::MTLDataType::UInt);
+
+        let command_buffer = command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        let kernel = function.program.get_function("sha3",None).unwrap();
+
+        // info!(target: LOG_TARGET,"Creating argument encoder: {:?}", context.context.argument_buffers_support());
+
+        let argument_encoder = context.context.new_argument_encoder(Array::from_slice(
+            &[
+                min_difficulty_argument_descriptor,
+                nonce_start_argument_descriptor,
+                num_iterations_argument_descriptor,
+            ],
+        ));
+        // let argument_encoder = kernel.new_argument_encoder(0);
+
+        info!(target: LOG_TARGET,"Creating argument buffer: {:?}", argument_encoder.encoded_length());
+
+        let arg_buffer = context.context.new_buffer(
+            argument_encoder.encoded_length(),
+            MTLResourceOptions::empty(),
+        );
+
+        info!(target: LOG_TARGET,"Setting argument buffer: {:?}", arg_buffer.length());
+
+        argument_encoder.set_argument_buffer(&arg_buffer, 0);
+        info!(target: LOG_TARGET,"Setting buffer nonce_start");
+        argument_encoder.set_buffer(0, &nonce_start, 0);
+        info!(target: LOG_TARGET,"Setting buffer min_difficulty");
+        argument_encoder.set_buffer(1, &min_difficulty,1);
+        info!(target: LOG_TARGET,"Setting buffer num_iterations");
+        argument_encoder.set_buffer(2, &num_iterations, 2);
+
+        info!(target: LOG_TARGET,"Setting pipeline state descriptor");
+        let pipeline_state_descriptor = ComputePipelineDescriptor::new();
+        pipeline_state_descriptor.set_compute_function(Some(&kernel));
+
+        info!(target: LOG_TARGET,"Creating pipeline state");
+
+        let pipeline_state = context.context
+            .new_compute_pipeline_state_with_function(
+                pipeline_state_descriptor.compute_function().unwrap(),
+            )
+            .unwrap();
+
+        info!(target: LOG_TARGET,"Setting compute pipeline state");
+
+        encoder.set_compute_pipeline_state(&pipeline_state);
+        encoder.set_buffer(0, Some(&arg_buffer), 0);
+        encoder.set_buffer(1, Some(&buffer), 0);
+        encoder.set_buffer(2, Some(&output), 0);
+
+        info!(target: LOG_TARGET,"Using resources");
+
+        encoder.use_resource(&buffer, MTLResourceUsage::Read);
+        encoder.use_resource(&arg_buffer, MTLResourceUsage::Read);
+        encoder.use_resource(&output, MTLResourceUsage::Write);
+
+        let threads_per_thread_group = MTLSize {
+            width: 16,
             height: 1,
             depth: 1,
         };
 
-        let thread_group_size = MTLSize {
-            width: num_threads,
+        let threads_per_grid = MTLSize {
+            width: (data.len() as f64 / threads_per_thread_group.width as f64).ceil() as u64,
             height: 1,
             depth: 1,
         };
 
-        info!(target: LOG_TARGET, "Thread group count: {:?}", thread_group_count.width);
-        encoder.dispatch_thread_groups(thread_group_count, thread_group_size);
+        info!(target: LOG_TARGET,"Threads per thread group: {:?}", threads_per_thread_group);
+        info!(target: LOG_TARGET,"Threads per grid: {:?}", threads_per_grid);
+
+        encoder.dispatch_thread_groups(threads_per_grid, threads_per_thread_group);
+            
+
+        // let width = 16;
+
+        // let thread_group_count = MTLSize {
+        //     width,
+        //     height: 1,
+        //     depth: 1,
+        // };
+
+        // let thread_group_size = MTLSize {
+        //     width: (data.len() as u64 + width) / width,
+        //     height: 1,
+        //     depth: 1,
+        // };
+
+        // info!(target: LOG_TARGET,"Thread group size: {:?}", thread_group_size);
+        // info!(target: LOG_TARGET,"Thread group count: {:?}", thread_group_count);
+
+        // encoder.dispatch_thread_groups(thread_group_count, thread_group_size);
+        
         encoder.end_encoding();
-
+        info!(target: LOG_TARGET,"Command buffer commit");
         command_buffer.commit();
         command_buffer.wait_until_completed();
 
-        // let mut cpu_end: u64 = 0;
-        // let mut gpu_end: u64 = 0;
-
-        // context.context.sample_timestamps(&mut cpu_end, &mut gpu_end);
-
-        let ptr = output_buffer.contents() as *mut u32;
+        let ptr = output.contents() as *mut u32;
         unsafe {
-            println!("Output: {}", *ptr);
-        };
+            println!("Sum: {}", *ptr);
+            Ok((None, *ptr, 0))
+        }
+    })
 
-        Ok((None, 0, 0))
     }
 }
 
