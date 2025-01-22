@@ -1,6 +1,5 @@
-use std::{mem::transmute, os::raw::c_void};
+use std::mem::{size_of,transmute};
 
-use anyhow::Context;
 use log::{debug, info};
 use metal::{
     objc::rc::autoreleasepool, ArgumentDescriptor, Array, CompileOptions, ComputePassDescriptor, ComputePipelineDescriptor, Device, Function, Library, MTLResourceOptions, MTLResourceUsage, MTLSize, NSUInteger, Texture
@@ -155,7 +154,7 @@ impl EngineImpl for MetalEngine {
             MTLResourceOptions::CPUCacheModeDefaultCache,
         );
 
-        info!(target: LOG_TARGET,"Creating constants input buffer");
+        info!(target: LOG_TARGET,"Creating min_difficulty buffer");
 
         let min_difficulty = {
             let min_difficulty_data = [min_difficulty];
@@ -166,6 +165,8 @@ impl EngineImpl for MetalEngine {
             )
         };
 
+        info!(target: LOG_TARGET,"Creating nonce start buffer");
+
         let nonce_start = {
             let nonce_start_data = [nonce_start];
             context.context.new_buffer_with_data(
@@ -174,6 +175,8 @@ impl EngineImpl for MetalEngine {
                 MTLResourceOptions::CPUCacheModeDefaultCache,
             )
         };
+
+        info!(target: LOG_TARGET,"Creating num_iterations buffer");
 
         let num_iterations = {
             let num_iterations_data = [num_iterations];
@@ -187,7 +190,7 @@ impl EngineImpl for MetalEngine {
         info!(target: LOG_TARGET,"Creating sum buffer");
 
         let output = {
-            let output_data =  vec![0u64, 0u64];
+            let output_data =  [0u64, 0u64];
             context.context.new_buffer_with_data(
                 unsafe { transmute(output_data.as_ptr()) },
                 (output_data.len() * size_of::<u32>()) as u64,
@@ -196,33 +199,33 @@ impl EngineImpl for MetalEngine {
         };
 
 
-        let min_difficulty_argument_descriptor = ArgumentDescriptor::new();
-        min_difficulty_argument_descriptor.set_index(0);
-        min_difficulty_argument_descriptor.set_data_type(metal::MTLDataType::ULong);
+        // let min_difficulty_argument_descriptor = ArgumentDescriptor::new();
+        // min_difficulty_argument_descriptor.set_index(0);
+        // min_difficulty_argument_descriptor.set_data_type(metal::MTLDataType::ULong);
 
-        let nonce_start_argument_descriptor = ArgumentDescriptor::new();
-        nonce_start_argument_descriptor.set_index(1);
-        nonce_start_argument_descriptor.set_data_type(metal::MTLDataType::ULong);
+        // let nonce_start_argument_descriptor = ArgumentDescriptor::new();
+        // nonce_start_argument_descriptor.set_index(1);
+        // nonce_start_argument_descriptor.set_data_type(metal::MTLDataType::ULong);
 
-        let num_iterations_argument_descriptor = ArgumentDescriptor::new();
-        num_iterations_argument_descriptor.set_index(2);
-        num_iterations_argument_descriptor.set_data_type(metal::MTLDataType::UInt);
+        // let num_iterations_argument_descriptor = ArgumentDescriptor::new();
+        // num_iterations_argument_descriptor.set_index(2);
+        // num_iterations_argument_descriptor.set_data_type(metal::MTLDataType::UInt);
 
         let command_buffer = command_queue.new_command_buffer();
         let encoder = command_buffer.new_compute_command_encoder();
 
         let kernel = function.program.get_function("sha3",None).unwrap();
 
-        // info!(target: LOG_TARGET,"Creating argument encoder: {:?}", context.context.argument_buffers_support());
+        info!(target: LOG_TARGET,"Creating argument encoder: {:?}", context.context.argument_buffers_support());
 
-        let argument_encoder = context.context.new_argument_encoder(Array::from_slice(
-            &[
-                min_difficulty_argument_descriptor,
-                nonce_start_argument_descriptor,
-                num_iterations_argument_descriptor,
-            ],
-        ));
-        // let argument_encoder = kernel.new_argument_encoder(0);
+        // let argument_encoder = context.context.new_argument_encoder(Array::from_slice(
+        //     &[
+        //         nonce_start_argument_descriptor,
+        //         min_difficulty_argument_descriptor,
+        //         num_iterations_argument_descriptor,
+        //     ],
+        // ));
+        let argument_encoder = kernel.new_argument_encoder(2);
 
         info!(target: LOG_TARGET,"Creating argument buffer: {:?}", argument_encoder.encoded_length());
 
@@ -231,15 +234,18 @@ impl EngineImpl for MetalEngine {
             MTLResourceOptions::empty(),
         );
 
-        info!(target: LOG_TARGET,"Setting argument buffer: {:?}", arg_buffer.length());
+        info!(target: LOG_TARGET,"Setting argument buffer");
 
         argument_encoder.set_argument_buffer(&arg_buffer, 0);
+        info!(target: LOG_TARGET,"Argument buffer size: {:?}", arg_buffer.allocated_size());
         info!(target: LOG_TARGET,"Setting buffer nonce_start");
         argument_encoder.set_buffer(0, &nonce_start, 0);
+        info!(target: LOG_TARGET,"Argument buffer size: {:?}", arg_buffer.allocated_size());
         info!(target: LOG_TARGET,"Setting buffer min_difficulty");
-        argument_encoder.set_buffer(1, &min_difficulty,1);
+        argument_encoder.set_buffer(1, &min_difficulty,0);
+        info!(target: LOG_TARGET,"Argument buffer size: {:?}", arg_buffer.allocated_size());
         info!(target: LOG_TARGET,"Setting buffer num_iterations");
-        argument_encoder.set_buffer(2, &num_iterations, 2);
+        argument_encoder.set_buffer(2, &num_iterations, 0);
 
         info!(target: LOG_TARGET,"Setting pipeline state descriptor");
         let pipeline_state_descriptor = ComputePipelineDescriptor::new();
@@ -256,14 +262,16 @@ impl EngineImpl for MetalEngine {
         info!(target: LOG_TARGET,"Setting compute pipeline state");
 
         encoder.set_compute_pipeline_state(&pipeline_state);
-        encoder.set_buffer(0, Some(&arg_buffer), 0);
-        encoder.set_buffer(1, Some(&buffer), 0);
-        encoder.set_buffer(2, Some(&output), 0);
+        encoder.set_buffer(0, Some(&buffer), 0);
+        encoder.set_buffer(1, Some(&output), 0);
+        encoder.set_buffer(2, Some(&arg_buffer), 0);
 
         info!(target: LOG_TARGET,"Using resources");
 
         encoder.use_resource(&buffer, MTLResourceUsage::Read);
-        encoder.use_resource(&arg_buffer, MTLResourceUsage::Read);
+        encoder.use_resource(&min_difficulty, MTLResourceUsage::Read);
+        encoder.use_resource(&nonce_start, MTLResourceUsage::Read);
+        encoder.use_resource(&num_iterations, MTLResourceUsage::Read);
         encoder.use_resource(&output, MTLResourceUsage::Write);
 
         let threads_per_thread_group = MTLSize {

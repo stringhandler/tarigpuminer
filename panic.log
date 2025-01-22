@@ -1,1 +1,1 @@
-Panic at file: 'src/metal_engine.rs', line: 246: called `Result::unwrap()` on an `Err` value: "Compiler encountered an internal error"
+Panic at file: 'src/metal_engine.rs', line: 260: called `Result::unwrap()` on an `Err` value: "Compiler encountered an internal error"

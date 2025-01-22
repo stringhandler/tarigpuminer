@@ -33,14 +33,14 @@ ulong swap_endian_64(ulong value) {
 }
 
 struct ConstantInput {
-    ulong nonce_start [[ id(0)]];
-    ulong difficulty [[ id(1)]];
-    uint num_rounds [[ id(2)]];
+    ulong nonce_start;
+    ulong difficulty;
+    uint num_rounds;
 };
 
-kernel void sha3(device ConstantInput &input [[ buffer(0) ]],
-                 device ulong *buffer [[ buffer(1) ]],
-                 device ulong *output_1 [[ buffer(2) ]],
+kernel void sha3(device ulong *buffer [[ buffer(0) ]],
+                 device ulong *output_1 [[ buffer(1) ]],
+                 device ConstantInput &input [[ buffer(2) ]],
                  uint gid [[ thread_position_in_grid ]],
                  uint max_total_threads_per_threadgroup [[ threads_per_threadgroup ]]
                  ) {
