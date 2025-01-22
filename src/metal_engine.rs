@@ -2,7 +2,7 @@ use std::mem::{size_of,transmute};
 
 use log::{debug, info};
 use metal::{
-    objc::rc::autoreleasepool, ArgumentDescriptor, Array, CompileOptions, ComputePassDescriptor, ComputePipelineDescriptor, Device, Function, Library, MTLResourceOptions, MTLResourceUsage, MTLSize, NSUInteger, Texture
+    objc::rc::autoreleasepool, ArgumentDescriptor, Array, CompileOptions, ComputePassDescriptor, ComputePipelineDescriptor, Device, Fence, FenceRef, Function, Library, MTLResourceOptions, MTLResourceUsage, MTLSize, NSUInteger, Texture
 };
 
 use crate::{
@@ -156,29 +156,29 @@ impl EngineImpl for MetalEngine {
 
         info!(target: LOG_TARGET,"Creating min_difficulty buffer");
 
-        let min_difficulty = {
+        let min_difficulty_buffer = {
             let min_difficulty_data = [min_difficulty];
             context.context.new_buffer_with_data(
                 unsafe { transmute(min_difficulty_data.as_ptr()) },
-                (min_difficulty_data.len() * size_of::<u32>()) as u64,
+                (min_difficulty_data.len() * size_of::<u64>()) as u64,
                 MTLResourceOptions::CPUCacheModeDefaultCache,
             )
         };
 
         info!(target: LOG_TARGET,"Creating nonce start buffer");
 
-        let nonce_start = {
+        let nonce_start_buffer = {
             let nonce_start_data = [nonce_start];
             context.context.new_buffer_with_data(
                 unsafe { transmute(nonce_start_data.as_ptr()) },
-                (nonce_start_data.len() * size_of::<u32>()) as u64,
+                (nonce_start_data.len() * size_of::<u64>()) as u64,
                 MTLResourceOptions::CPUCacheModeDefaultCache,
             )
         };
 
         info!(target: LOG_TARGET,"Creating num_iterations buffer");
 
-        let num_iterations = {
+        let num_iterations_buffer = {
             let num_iterations_data = [num_iterations];
             context.context.new_buffer_with_data(
                 unsafe { transmute(num_iterations_data.as_ptr()) },
@@ -190,10 +190,10 @@ impl EngineImpl for MetalEngine {
         info!(target: LOG_TARGET,"Creating sum buffer");
 
         let output = {
-            let output_data =  [0u64, 0u64];
+            let output_data =  vec![0u64, 0u64];
             context.context.new_buffer_with_data(
                 unsafe { transmute(output_data.as_ptr()) },
-                (output_data.len() * size_of::<u32>()) as u64,
+                (output_data.len() * size_of::<u64>()) as u64,
                 MTLResourceOptions::CPUCacheModeDefaultCache,
             )
         };
@@ -225,33 +225,37 @@ impl EngineImpl for MetalEngine {
         //         num_iterations_argument_descriptor,
         //     ],
         // ));
-        let argument_encoder = kernel.new_argument_encoder(2);
+        // let argument_encoder = kernel.new_argument_encoder(2);
 
-        info!(target: LOG_TARGET,"Creating argument buffer: {:?}", argument_encoder.encoded_length());
+        // info!(target: LOG_TARGET,"Creating argument buffer: {:?}", argument_encoder.encoded_length());
 
-        let arg_buffer = context.context.new_buffer(
-            argument_encoder.encoded_length(),
-            MTLResourceOptions::empty(),
-        );
+        // let arg_buffer = context.context.new_buffer(
+        //     argument_encoder.encoded_length(),
+        //     MTLResourceOptions::empty(),
+        // );
 
-        info!(target: LOG_TARGET,"Setting argument buffer");
+        // info!(target: LOG_TARGET,"Setting argument buffer");
 
-        argument_encoder.set_argument_buffer(&arg_buffer, 0);
-        info!(target: LOG_TARGET,"Argument buffer size: {:?}", arg_buffer.allocated_size());
-        info!(target: LOG_TARGET,"Setting buffer nonce_start");
-        argument_encoder.set_buffer(0, &nonce_start, 0);
-        info!(target: LOG_TARGET,"Argument buffer size: {:?}", arg_buffer.allocated_size());
-        info!(target: LOG_TARGET,"Setting buffer min_difficulty");
-        argument_encoder.set_buffer(1, &min_difficulty,0);
-        info!(target: LOG_TARGET,"Argument buffer size: {:?}", arg_buffer.allocated_size());
-        info!(target: LOG_TARGET,"Setting buffer num_iterations");
-        argument_encoder.set_buffer(2, &num_iterations, 0);
+        // argument_encoder.set_argument_buffer(&arg_buffer, 0);
+        // info!(target: LOG_TARGET,"Argument buffer size: {:?}", arg_buffer.allocated_size());
+        // info!(target: LOG_TARGET,"Setting buffer nonce_start");
+        // argument_encoder.set_buffer(0, &nonce_start, 0);
+        // info!(target: LOG_TARGET,"Argument buffer size: {:?}", arg_buffer.allocated_size());
+        // info!(target: LOG_TARGET,"Setting buffer min_difficulty");
+        // argument_encoder.set_buffer(1, &min_difficulty,0);
+        // info!(target: LOG_TARGET,"Argument buffer size: {:?}", arg_buffer.allocated_size());
+        // info!(target: LOG_TARGET,"Setting buffer num_iterations");
+        // argument_encoder.set_buffer(2, &num_iterations, 0);
 
         info!(target: LOG_TARGET,"Setting pipeline state descriptor");
         let pipeline_state_descriptor = ComputePipelineDescriptor::new();
         pipeline_state_descriptor.set_compute_function(Some(&kernel));
 
         info!(target: LOG_TARGET,"Creating pipeline state");
+
+        let pipeline_function = pipeline_state_descriptor.compute_function().unwrap();
+
+        info!(target: LOG_TARGET,"Creating compute pipeline state: {:?}", pipeline_function.name());
 
         let pipeline_state = context.context
             .new_compute_pipeline_state_with_function(
@@ -264,18 +268,22 @@ impl EngineImpl for MetalEngine {
         encoder.set_compute_pipeline_state(&pipeline_state);
         encoder.set_buffer(0, Some(&buffer), 0);
         encoder.set_buffer(1, Some(&output), 0);
-        encoder.set_buffer(2, Some(&arg_buffer), 0);
+        encoder.set_buffer(2, Some(&nonce_start_buffer), 0);
+        encoder.set_buffer(3, Some(&min_difficulty_buffer), 0);
+        encoder.set_buffer(4, Some(&num_iterations_buffer), 0);
+        // encoder.set_buffer(2, Some(&arg_buffer), 0);
 
         info!(target: LOG_TARGET,"Using resources");
 
         encoder.use_resource(&buffer, MTLResourceUsage::Read);
-        encoder.use_resource(&min_difficulty, MTLResourceUsage::Read);
-        encoder.use_resource(&nonce_start, MTLResourceUsage::Read);
-        encoder.use_resource(&num_iterations, MTLResourceUsage::Read);
+        encoder.use_resource(&min_difficulty_buffer, MTLResourceUsage::Read);
+        encoder.use_resource(&nonce_start_buffer, MTLResourceUsage::Read);
+        encoder.use_resource(&num_iterations_buffer, MTLResourceUsage::Read);
         encoder.use_resource(&output, MTLResourceUsage::Write);
+        // encoder.memory_barrier_with_resources(&[&output]);
 
         let threads_per_thread_group = MTLSize {
-            width: 16,
+            width: 24,
             height: 1,
             depth: 1,
         };
@@ -289,7 +297,7 @@ impl EngineImpl for MetalEngine {
         info!(target: LOG_TARGET,"Threads per thread group: {:?}", threads_per_thread_group);
         info!(target: LOG_TARGET,"Threads per grid: {:?}", threads_per_grid);
 
-        encoder.dispatch_thread_groups(threads_per_grid, threads_per_thread_group);
+        encoder.dispatch_threads(threads_per_grid, threads_per_thread_group);
             
 
         // let width = 16;
@@ -316,10 +324,20 @@ impl EngineImpl for MetalEngine {
         command_buffer.commit();
         command_buffer.wait_until_completed();
 
-        let ptr = output.contents() as *mut u32;
+
+
+        let ptr = output.contents() as *mut [u64; 2];
         unsafe {
-            println!("Sum: {}", *ptr);
-            Ok((None, *ptr, 0))
+            let result = *ptr;
+            info!(target: LOG_TARGET,"Result: {:?}", result);
+            if result[0] > 0 {
+                return Ok((Some(
+                    result[0]),
+                    grid_size * block_size * num_iterations,
+                    u64::MAX / result[1]));
+            }else {
+                return Ok((None, grid_size * block_size * num_iterations, u64::MAX / result[1]));
+            }
         }
     })
 

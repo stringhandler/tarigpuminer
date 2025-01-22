@@ -1,4 +1,6 @@
 #include <metal_stdlib>
+#include <metal_atomic>
+#include <metal_compute>
 
 using namespace metal;
 
@@ -32,25 +34,21 @@ ulong swap_endian_64(ulong value) {
          ((value & 0xFF00000000000000ULL) >> 56);
 }
 
-struct ConstantInput {
-    ulong nonce_start;
-    ulong difficulty;
-    uint num_rounds;
-};
-
 kernel void sha3(device ulong *buffer [[ buffer(0) ]],
                  device ulong *output_1 [[ buffer(1) ]],
-                 device ConstantInput &input [[ buffer(2) ]],
+                 device ulong& nonce_start [[ buffer(2) ]],
+                 device ulong& difficulty [[ buffer(3) ]],
+                 device uint& num_rounds [[ buffer(4) ]],
                  uint gid [[ thread_position_in_grid ]],
                  uint max_total_threads_per_threadgroup [[ threads_per_threadgroup ]]
                  ) {
 
     ulong state[25];
-    for (uint i = 0; i < input.num_rounds; i++) {
+    for (uint i = 0; i < num_rounds; i++) {
         for (uint j = 0; j < 25; j++) {
             state[j] = 0;
         }
-        state[0] = input.nonce_start + gid + i * max_total_threads_per_threadgroup;
+        state[0] = nonce_start + gid + i * max_total_threads_per_threadgroup;
         state[1] = buffer[1];
         state[2] = buffer[2];
         state[3] = buffer[3];
@@ -159,10 +157,11 @@ kernel void sha3(device ulong *buffer [[ buffer(0) ]],
 
         // Check difficulty
         ulong swap = swap_endian_64(state[0]);
+        __atomic_thread_fence(memory_order::memory_order_relaxed);
         threadgroup_barrier(mem_flags::mem_threadgroup);
-        if (swap < input.difficulty) {
+        if (swap < difficulty) {
             if (output_1[1] == 0 || output_1[1] > swap) {
-                output_1[0] = input.nonce_start + gid + i * max_total_threads_per_threadgroup;
+                output_1[0] = nonce_start + gid + i * max_total_threads_per_threadgroup;
                 output_1[1] = swap;
             }
         } else {
