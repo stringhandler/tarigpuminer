@@ -42,7 +42,7 @@ impl FunctionImpl for MetalFunction {
     type Device = Device;
 
     fn suggested_launch_configuration(&self, device: &Self::Device) -> Result<(u32, u32), anyhow::Error> {
-        let kernel = self.program.get_function("sum", None).unwrap_or_else(|error| {
+        let kernel = self.program.get_function("sha3", None).unwrap_or_else(|error| {
             panic!("Failed to get function sum: {:?}", error);
         });
 
@@ -202,9 +202,9 @@ impl EngineImpl for MetalEngine {
             unsafe {
                 let result = *ptr;
                 if result[0] > 0 {
-                    return Ok((Some(result[0]), (threads as u32) * num_iterations, u64::MAX / result[1]));
+                    return Ok((Some(result[0]), block_size * grid_size * num_iterations, u64::MAX / result[1]));
                 } else {
-                    return Ok((None, (threads as u32) * num_iterations, u64::MAX / result[1]));
+                    return Ok((None, block_size * grid_size * num_iterations, u64::MAX / result[1]));
                 }
             }
         })
