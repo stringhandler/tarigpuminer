@@ -46,8 +46,13 @@ impl FunctionImpl for MetalFunction {
             panic!("Failed to get function sum: {:?}", error);
         });
 
-        let block_size = kernel.device().recommended_max_working_set_size() as u32;
-        let grid_size = kernel.device().max_threads_per_threadgroup().width as u32;
+        let pipeline_state = create_pipeline_state(device, &kernel)?;
+
+        let grid_size = pipeline_state.max_total_threads_per_threadgroup() as u32;
+        let block_size = pipeline_state.thread_execution_width() as u32;
+
+        // 896 is default block size from config.json
+        let block_size = block_size.max(896);
 
         Ok((block_size, grid_size))
     }
@@ -85,7 +90,7 @@ impl EngineImpl for MetalEngine {
                 device_name: device.name().to_string(),
                 device_index: id as u32,
                 is_available: true,
-                max_grid_size: device.max_threadgroup_memory_length() as u32,
+                max_grid_size: 0,
                 grid_size: 0,
                 block_size: 0,
             };
@@ -104,6 +109,7 @@ impl EngineImpl for MetalEngine {
                     {
                         gpu_device.block_size = block_size;
                         gpu_device.grid_size = grid_size;
+                        gpu_device.max_grid_size = grid_size;
                     }
                     gpu_devices.push(gpu_device);
                     total_devices += 1;
@@ -175,19 +181,25 @@ impl EngineImpl for MetalEngine {
             encoder.use_resource(&output, MTLResourceUsage::Write);
             encoder.memory_barrier_with_resources(&[&output]);
 
-            let threads = (block_size / 2).min(grid_size / 2) as u64;
+            let threads_per_grid = MTLSize {
+                width: block_size as u64,
+                height: 1,
+                depth: 1,
+            };
 
             let threads_per_thread_group = MTLSize {
-                width: threads,
+                width: grid_size.min(pipeline_state.max_total_threads_per_threadgroup() as u32) as u64,
                 height: 1,
                 depth: 1,
             };
 
-            let threads_per_grid = MTLSize {
-                width: (data.len() as f64 / threads_per_thread_group.width as f64).ceil() as u64,
-                height: 1,
-                depth: 1,
-            };
+            let thread_per_thread_group_combined =
+                threads_per_thread_group.width * threads_per_thread_group.height * threads_per_thread_group.depth;
+
+            let threads_per_grid_combined = threads_per_grid.width * threads_per_grid.height * threads_per_grid.depth;
+
+            let hash_base =
+                (thread_per_thread_group_combined * threads_per_grid_combined * num_iterations as u64) as u32;
 
             debug!(target: LOG_TARGET,"Threads per thread group: {:?}", threads_per_thread_group);
             debug!(target: LOG_TARGET,"Threads per grid: {:?}", threads_per_grid);
@@ -202,9 +214,9 @@ impl EngineImpl for MetalEngine {
             unsafe {
                 let result = *ptr;
                 if result[0] > 0 {
-                    return Ok((Some(result[0]), block_size * grid_size * num_iterations, u64::MAX / result[1]));
+                    return Ok((Some(result[0]), hash_base, u64::MAX / result[1]));
                 } else {
-                    return Ok((None, block_size * grid_size * num_iterations, u64::MAX / result[1]));
+                    return Ok((None, hash_base as u32, u64::MAX / result[1]));
                 }
             }
         })

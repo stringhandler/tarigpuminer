@@ -28,7 +28,7 @@ kernel void sha3(device ulong *buffer [[ buffer(0) ]],
                  device ulong& difficulty [[ buffer(3) ]],
                  device uint& num_rounds [[ buffer(4) ]],
                  uint gid [[ thread_position_in_grid ]],
-                 uint threads_per_grid [[ threads_per_grid ]]
+                 uint threads_per_simdgroup [[ threads_per_grid ]]
                  ) {
 
     ulong state[25];
@@ -36,7 +36,7 @@ kernel void sha3(device ulong *buffer [[ buffer(0) ]],
         for (uint j = 0; j < 25; j++) {
             state[j] = 0;
         }
-        state[0] = nonce_start + gid + i * threads_per_grid;
+        state[0] = nonce_start + gid + i * threads_per_simdgroup;
         state[1] = buffer[1];
         state[2] = buffer[2];
         state[3] = buffer[3];
@@ -149,7 +149,7 @@ kernel void sha3(device ulong *buffer [[ buffer(0) ]],
         threadgroup_barrier(mem_flags::mem_threadgroup);
         if (swap < difficulty) {
             if (output_1[1] == 0 || output_1[1] > swap) {
-                output_1[0] = nonce_start + gid + i * threads_per_grid;
+                output_1[0] = nonce_start + gid + i * threads_per_simdgroup;
                 output_1[1] = swap;
             }
         } else {

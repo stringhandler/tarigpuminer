@@ -5,7 +5,6 @@ use log::{error, info, warn};
 use minotari_app_grpc::tari_rpc::{
     base_node_client::BaseNodeClient,
     pow_algo::PowAlgos,
-    sha_p2_pool_client::ShaP2PoolClient,
     Block,
     Empty,
     GetNewBlockResult,
