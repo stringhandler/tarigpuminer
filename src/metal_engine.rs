@@ -181,7 +181,7 @@ impl EngineImpl for MetalEngine {
             encoder.use_resource(&output, MTLResourceUsage::Write);
             encoder.memory_barrier_with_resources(&[&output]);
 
-            let threads_per_grid = MTLSize {
+            let threadgroups_per_grid = MTLSize {
                 width: block_size as u64,
                 height: 1,
                 depth: 1,
@@ -196,15 +196,15 @@ impl EngineImpl for MetalEngine {
             let thread_per_thread_group_combined =
                 threads_per_thread_group.width * threads_per_thread_group.height * threads_per_thread_group.depth;
 
-            let threads_per_grid_combined = threads_per_grid.width * threads_per_grid.height * threads_per_grid.depth;
+            let threadgroups_per_grid_combined = threadgroups_per_grid.width * threadgroups_per_grid.height * threadgroups_per_grid.depth;
 
             let hash_base =
-                (thread_per_thread_group_combined * threads_per_grid_combined * num_iterations as u64) as u32;
+                (thread_per_thread_group_combined * threadgroups_per_grid_combined * num_iterations as u64) as u32;
 
             debug!(target: LOG_TARGET,"Threads per thread group: {:?}", threads_per_thread_group);
-            debug!(target: LOG_TARGET,"Threads per grid: {:?}", threads_per_grid);
+            debug!(target: LOG_TARGET,"Threads per grid: {:?}", threadgroups_per_grid);
 
-            encoder.dispatch_threads(threads_per_grid, threads_per_thread_group);
+            encoder.dispatch_threads(threadgroups_per_grid, threads_per_thread_group);
             encoder.end_encoding();
 
             command_buffer.commit();
