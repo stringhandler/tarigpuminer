@@ -234,6 +234,8 @@ jobs:
           #cargo install cross
           cargo install cross --git https://github.com/cross-rs/cross
           echo "CARGO=cross" >> $GITHUB_ENV
+          # Disable - [cross] warning: Found conflicting cross configuration
+          echo "CROSS_NO_WARNINGS=0" >> $GITHUB_ENV
 
       - name: Install and setup cargo-auditable
         # if: ${{ ( startsWith(github.ref, 'refs/tags/v') ) && ( ! matrix.builds.cross ) }}
