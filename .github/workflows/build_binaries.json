@@ -44,12 +44,12 @@
     "features": "opencl3"
   },
   {
-    "name": "opencl-macos-arm64",
+    "name": "metal-macos-arm64",
     "runs-on": "macos-14",
     "rust": "stable",
     "target": "aarch64-apple-darwin",
     "cross": false,
-    "features": "opencl3"
+    "features": "metal"
   },
   {
     "name": "cuda-windows-x64",
