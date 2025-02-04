@@ -21,6 +21,7 @@ use opencl3::{
 use crate::{
     context_impl::ContextImpl,
     engine_impl::EngineImpl,
+    engines_manager::EngineType,
     function_impl::FunctionImpl,
     gpu_status_file::GpuStatus,
 };
@@ -54,6 +55,10 @@ impl EngineImpl for OpenClEngine {
         let mut lock = self.inner.write().unwrap();
         lock.platforms = platforms;
         Ok(())
+    }
+
+    fn get_engine_type(&self) -> crate::engines_manager::EngineType {
+        EngineType::OpenCL
     }
 
     fn num_devices(&self) -> Result<u32, anyhow::Error> {

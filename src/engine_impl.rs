@@ -1,8 +1,18 @@
-use crate::{context_impl::ContextImpl, function_impl::FunctionImpl, gpu_status_file::GpuStatus};
+use std::any::Any;
+
+use crate::{
+    context_impl::ContextImpl,
+    engines_manager::EngineType,
+    function_impl::FunctionImpl,
+    gpu_status_file::GpuStatus,
+};
 
 pub trait EngineImpl {
-    type Context: ContextImpl;
-    type Function: FunctionImpl;
+    type Context: Any;
+    type Function: Any;
+
+    fn get_engine_type(&self) -> EngineType;
+
     fn init(&mut self) -> Result<(), anyhow::Error>;
 
     fn num_devices(&self) -> Result<u32, anyhow::Error>;

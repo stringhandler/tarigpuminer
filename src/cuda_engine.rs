@@ -10,7 +10,13 @@ use cust::{
 };
 use log::{debug, error, info, warn};
 
-use crate::{context_impl::ContextImpl, gpu_status_file::GpuStatus, EngineImpl, FunctionImpl};
+use crate::{
+    context_impl::ContextImpl,
+    engines_manager::EngineType,
+    function_impl::FunctionImpl,
+    gpu_status_file::GpuStatus,
+    EngineImpl,
+};
 const LOG_TARGET: &str = "tari::gpuminer::cuda";
 #[derive(Clone)]
 pub struct CudaEngine {}
@@ -36,7 +42,12 @@ impl EngineImpl for CudaEngine {
         Ok(num_devices)
     }
 
+    fn get_engine_type(&self) -> crate::engines_manager::EngineType {
+        EngineType::Cuda
+    }
+
     fn detect_devices(&self) -> Result<Vec<GpuStatus>, anyhow::Error> {
+        info!(target: LOG_TARGET, "Detect CUDA devices");
         let num_devices = Device::num_devices()?;
         let mut total_devices = 0;
         let mut devices = Vec::with_capacity(num_devices as usize);

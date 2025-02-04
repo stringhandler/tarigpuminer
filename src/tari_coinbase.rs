@@ -1,30 +1,20 @@
-use rand::rngs::OsRng;
-use tari_common_types::{tari_address::TariAddress, types::PublicKey};
+use tari_common_types::tari_address::TariAddress;
 use tari_core::{
+    self,
     consensus::ConsensusConstants,
-    one_sided::{
-        diffie_hellman_stealth_domain_hasher,
-        shared_secret_to_output_encryption_key,
-        shared_secret_to_output_spending_key,
-    },
     transactions::{
-        key_manager::{MemoryDbKeyManager, TariKeyId, TransactionKeyManagerBranch, TransactionKeyManagerInterface},
+        key_manager::{MemoryDbKeyManager, TariKeyId},
         tari_amount::MicroMinotari,
         transaction_components::{
             encrypted_data::PaymentId,
             CoinBaseExtra,
             RangeProofType,
-            Transaction,
             TransactionKernel,
             TransactionOutput,
-            WalletOutput,
         },
         CoinbaseBuildError,
-        CoinbaseBuilder,
     },
 };
-use tari_crypto::keys::PublicKey as PK;
-use tari_key_manager::key_manager_service::KeyManagerInterface;
 
 pub async fn generate_coinbase(
     fee: MicroMinotari,
