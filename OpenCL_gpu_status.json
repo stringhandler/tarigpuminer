@@ -1,0 +1,20 @@
+{
+  "gpu_devices": [
+    {
+      "device_index": 0,
+      "device_name": "NVIDIA GeForce RTX 4080 SUPER",
+      "is_available": true,
+      "grid_size": 256,
+      "max_grid_size": 1024,
+      "block_size": 1000
+    },
+    {
+      "device_index": 0,
+      "device_name": "AMD Radeon Graphics (radeonsi, raphael_mendocino, LLVM 18.1.8, DRM 3.57, 6.8.0-52-generic)",
+      "is_available": true,
+      "grid_size": 0,
+      "max_grid_size": 256,
+      "block_size": 0
+    }
+  ]
+}

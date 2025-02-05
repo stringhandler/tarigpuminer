@@ -1,0 +1,214 @@
+2025-02-05 15:12:43.754115707 INFO  Device indexes to use: [] from the total number of devices: 0 // src/main.rs:1055
+2025-02-05 15:12:43.754142897 INFO  Device indexes to use: [] from the total number of devices: 0 // src/main.rs:1055
+2025-02-05 15:12:43.754188997 INFO  Stats collector started // src/main.rs:459
+2025-02-05 15:12:43.754198907 INFO  Stats collector started // src/main.rs:459
+2025-02-05 15:12:43.754234347 INFO  HTTP server runs on port: 18000 // src/main.rs:465
+2025-02-05 15:12:43.754244397 INFO  HTTP server runs on port: 18000 // src/main.rs:465
+2025-02-05 15:12:43.754255017 INFO  HTTP server enabled // src/main.rs:467
+2025-02-05 15:12:43.754264437 INFO  HTTP server enabled // src/main.rs:467
+2025-02-05 15:12:43.754345266 INFO  Http: starts the http server on the port 18000 // src/http/server.rs:59
+2025-02-05 15:12:43.754421936 INFO  Stats collector shutdown // src/main.rs:462
+2025-02-05 15:12:43.754435565 WARN  Total hashrate: 0 // src/main.rs:581
+2025-02-05 15:12:43.754444115 INFO  Stats collector shutdown // src/main.rs:462
+2025-02-05 15:12:43.754453695 INFO  Http: starts the http server on the port 18000 // src/http/server.rs:59
+2025-02-05 15:12:43.754460665 WARN  Total hashrate: 0 // src/main.rs:581
+2025-02-05 15:12:43.754474895 INFO  Gpu miner startup process completed successfully // src/main.rs:119
+2025-02-05 15:12:43.754482505 INFO  Gpu miner startup process completed successfully // src/main.rs:119
+2025-02-05 15:13:13.639877999 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-05 15:13:13.639897519 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-05 15:13:13.639924679 WARN  No gpu device detected // src/main.rs:992
+2025-02-05 15:13:13.639933319 WARN  No gpu device detected // src/main.rs:992
+2025-02-05 15:13:13.639956089 ERROR Error detecting CUDA devices: Gpu detect error: "initialization error" // src/main.rs:252
+2025-02-05 15:13:13.639964589 ERROR Error detecting CUDA devices: Gpu detect error: "initialization error" // src/main.rs:252
+2025-02-05 15:13:13.639993549 WARN  No gpu device detected // src/main.rs:992
+2025-02-05 15:13:13.640001749 WARN  No gpu device detected // src/main.rs:992
+2025-02-05 15:13:13.640015589 ERROR Error detecting OpenCL devices: Gpu detect error: No gpu device detected // src/main.rs:264
+2025-02-05 15:13:13.640023848 ERROR Error detecting OpenCL devices: Gpu detect error: No gpu device detected // src/main.rs:264
+2025-02-05 15:50:34.460224772 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-05 15:50:34.460247782 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-05 15:50:34.460279942 WARN  No gpu device detected // src/main.rs:992
+2025-02-05 15:50:34.460290632 WARN  No gpu device detected // src/main.rs:992
+2025-02-05 15:50:34.460319042 ERROR Error detecting CUDA devices: Gpu detect error: "initialization error" // src/main.rs:252
+2025-02-05 15:50:34.460329432 ERROR Error detecting CUDA devices: Gpu detect error: "initialization error" // src/main.rs:252
+2025-02-05 15:50:34.460362201 WARN  No gpu device detected // src/main.rs:992
+2025-02-05 15:50:34.460372261 WARN  No gpu device detected // src/main.rs:992
+2025-02-05 15:50:34.460390981 ERROR Error detecting OpenCL devices: Gpu detect error: No gpu device detected // src/main.rs:264
+2025-02-05 15:50:34.460401281 ERROR Error detecting OpenCL devices: Gpu detect error: No gpu device detected // src/main.rs:264
+2025-02-05 15:56:35.351902673 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-05 15:56:35.351926383 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-05 15:56:35.422299859 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-05 15:56:35.422329719 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-05 15:56:35.477743369 INFO  Create CUDA main function // src/cuda_engine.rs:98
+2025-02-05 15:56:35.477774549 INFO  Create CUDA main function // src/cuda_engine.rs:98
+2025-02-05 15:56:35.635796994 INFO  Gpu miner startup process completed successfully // src/main.rs:119
+2025-02-05 15:56:35.635815724 INFO  Gpu miner startup process completed successfully // src/main.rs:119
+2025-02-05 16:10:27.460455088 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-05 16:10:27.460474628 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-05 16:10:27.531696058 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-05 16:10:27.531722417 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-05 16:10:27.576274069 INFO  Create CUDA main function // src/cuda_engine.rs:98
+2025-02-05 16:10:27.576296869 INFO  Create CUDA main function // src/cuda_engine.rs:98
+2025-02-05 16:10:27.733994862 INFO  Gpu miner startup process completed successfully // src/main.rs:119
+2025-02-05 16:10:27.734013582 INFO  Gpu miner startup process completed successfully // src/main.rs:119
+2025-02-05 16:10:35.514417754 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-05 16:10:35.514441594 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-05 16:10:35.589587184 INFO  Config file loaded successfully // src/main.rs:319
+2025-02-05 16:10:35.589614914 INFO  Config file loaded successfully // src/main.rs:319
+2025-02-05 16:10:35.589657914 INFO  Device indexes to use: [0, 1] from the total number of devices: 2 // src/main.rs:1090
+2025-02-05 16:10:35.589674014 INFO  Device indexes to use: [0, 1] from the total number of devices: 2 // src/main.rs:1090
+2025-02-05 16:10:35.589726393 INFO  Stats collector started // src/main.rs:494
+2025-02-05 16:10:35.589739563 INFO  Stats collector started // src/main.rs:494
+2025-02-05 16:10:35.589774563 INFO  HTTP server runs on port: 18000 // src/main.rs:500
+2025-02-05 16:10:35.589788603 INFO  HTTP server runs on port: 18000 // src/main.rs:500
+2025-02-05 16:10:35.589803383 INFO  HTTP server enabled // src/main.rs:502
+2025-02-05 16:10:35.589816393 INFO  HTTP server enabled // src/main.rs:502
+2025-02-05 16:10:35.589927762 INFO  Http: starts the http server on the port 18000 // src/http/server.rs:59
+2025-02-05 16:10:35.589945332 INFO  Http: starts the http server on the port 18000 // src/http/server.rs:59
+2025-02-05 16:10:35.590200280 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src/http/server.rs:66
+2025-02-05 16:10:35.590213490 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src/http/server.rs:66
+2025-02-05 16:10:35.591749198 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:10:35.591768468 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:10:35.591788318 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:10:35.591797958 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:10:35.591894567 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:10:35.591954866 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:10:35.591967486 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:10:35.591974656 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:10:35.591983856 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:10:35.591994416 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:10:35.592003616 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:10:35.592010566 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:10:35.592054156 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:35.592071826 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:35.592153335 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:35.592176415 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:35.592186865 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:35.592193795 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:40.593923882 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:40.593955531 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:40.593986781 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:40.593999801 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:40.594007981 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:40.594015771 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:45.594745736 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:45.594797185 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:45.594813155 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:45.594822975 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:45.595431421 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:45.595449130 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:50.596484669 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:50.596536878 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:50.596552418 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:50.596570728 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:50.596928725 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:50.596949745 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:55.597715244 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:55.597758874 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:55.597813254 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:55.597830843 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:55.597838993 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:10:55.597857293 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:00.599142784 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:00.599184164 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:00.599240603 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:00.599288383 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:00.599307003 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:00.599327613 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:05.601122889 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:05.601174859 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:05.601236199 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:05.601285078 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:05.601327208 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:05.601341998 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:10.602817303 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:10.602849342 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:10.602892672 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:10.602905432 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:10.602912762 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:10.602932092 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:18.057320841 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-05 16:11:18.057350691 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-05 16:11:18.133996473 INFO  Config file loaded successfully // src/main.rs:319
+2025-02-05 16:11:18.134023383 INFO  Config file loaded successfully // src/main.rs:319
+2025-02-05 16:11:18.134059343 INFO  Device indexes to use: [0, 1] from the total number of devices: 2 // src/main.rs:1090
+2025-02-05 16:11:18.134069463 INFO  Device indexes to use: [0, 1] from the total number of devices: 2 // src/main.rs:1090
+2025-02-05 16:11:18.134116912 INFO  Stats collector started // src/main.rs:494
+2025-02-05 16:11:18.134126132 INFO  Stats collector started // src/main.rs:494
+2025-02-05 16:11:18.134160972 INFO  HTTP server runs on port: 18000 // src/main.rs:500
+2025-02-05 16:11:18.134169782 INFO  HTTP server runs on port: 18000 // src/main.rs:500
+2025-02-05 16:11:18.134186082 INFO  HTTP server enabled // src/main.rs:502
+2025-02-05 16:11:18.134194692 INFO  HTTP server enabled // src/main.rs:502
+2025-02-05 16:11:18.134325001 INFO  Http: starts the http server on the port 18000 // src/http/server.rs:59
+2025-02-05 16:11:18.134354961 INFO  Http: starts the http server on the port 18000 // src/http/server.rs:59
+2025-02-05 16:11:18.134644769 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src/http/server.rs:66
+2025-02-05 16:11:18.134663868 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src/http/server.rs:66
+2025-02-05 16:11:18.135983408 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:11:18.135999288 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:11:18.136016778 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:11:18.136025628 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:11:18.136223077 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:11:18.136285316 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:11:18.136295826 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:11:18.136301696 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:11:18.136324806 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:18.136342086 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:18.136350146 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:11:18.136367786 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:11:18.136381375 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:11:18.136388015 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:11:18.136529694 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:18.136550534 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:18.136565964 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:18.136575534 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:23.136951336 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:23.136989256 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:23.137801840 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:23.139646226 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:23.139689325 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:23.139754455 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:28.138177388 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:28.138213298 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:28.141060466 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:28.141080056 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:28.141591472 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:28.141621202 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:33.139837800 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:33.139878509 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:33.141869495 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:33.141895854 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:33.142882807 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:33.142910017 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:38.142147024 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:38.142190714 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:38.143632743 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:38.143658733 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:38.144585896 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:11:38.144611375 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:12:55.874508149 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-05 16:12:55.874531519 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-05 16:12:55.946158976 INFO  Config file loaded successfully // src/main.rs:319
+2025-02-05 16:12:55.946194835 INFO  Config file loaded successfully // src/main.rs:319
+2025-02-05 16:12:55.946219375 INFO  Device indexes to use: [0] from the total number of devices: 1 // src/main.rs:1090
+2025-02-05 16:12:55.946233245 INFO  Device indexes to use: [0] from the total number of devices: 1 // src/main.rs:1090
+2025-02-05 16:12:55.946280135 INFO  Stats collector started // src/main.rs:494
+2025-02-05 16:12:55.946288665 INFO  Stats collector started // src/main.rs:494
+2025-02-05 16:12:55.946318394 INFO  HTTP server runs on port: 18000 // src/main.rs:500
+2025-02-05 16:12:55.946327174 INFO  HTTP server runs on port: 18000 // src/main.rs:500
+2025-02-05 16:12:55.946336634 INFO  HTTP server enabled // src/main.rs:502
+2025-02-05 16:12:55.946345104 INFO  HTTP server enabled // src/main.rs:502
+2025-02-05 16:12:55.946468393 INFO  Http: starts the http server on the port 18000 // src/http/server.rs:59
+2025-02-05 16:12:55.946492213 INFO  Http: starts the http server on the port 18000 // src/http/server.rs:59
+2025-02-05 16:12:55.946789661 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src/http/server.rs:66
+2025-02-05 16:12:55.946809441 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src/http/server.rs:66
+2025-02-05 16:12:55.947778313 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:12:55.947840473 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:12:55.947856353 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:12:55.947874283 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-05 16:12:55.947893953 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:12:55.947905923 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:12:55.947914892 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:12:55.947928712 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-05 16:12:55.948169101 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:12:55.948196450 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:12:55.948219970 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-05 16:12:55.948234040 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39

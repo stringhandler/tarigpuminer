@@ -235,6 +235,33 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         },
     };
 
+    #[cfg(feature = "nvidia")]
+    let mut gpu_cuda_engine: GpuEngine<CudaEngine>;
+
+    #[cfg(feature = "opencl")]
+    let mut gpu_opencl_engine: GpuEngine<OpenClEngine>;
+
+    #[cfg(feature = "metal")]
+    let mut gpu_metal_engine: GpuEngine<MetalEngine>;
+
+    #[cfg(feature = "nvidia")]
+    {
+        gpu_cuda_engine = GpuEngine::new(CudaEngine::new());
+        gpu_cuda_engine.init()?;
+    }
+
+    #[cfg(feature = "opencl")]
+    {
+        gpu_opencl_engine = GpuEngine::new(OpenClEngine::new());
+        gpu_opencl_engine.init()?;
+    }
+
+    #[cfg(feature = "metal")]
+    {
+        gpu_metal_engine = GpuEngine::new(MetalEngine::new());
+        gpu_metal_engine.init()?;
+    }
+
     // http server
     let mut shutdown = Shutdown::new();
 
@@ -244,8 +271,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
         #[cfg(feature = "nvidia")]
         {
-            let cuda_engine = GpuEngine::new(CudaEngine::new());
-            match detect_devices_for_engine(cuda_engine, cli.gpu_status_file.clone(), EngineType::Cuda) {
+            match detect_devices_for_engine(gpu_cuda_engine, cli.gpu_status_file.clone(), EngineType::Cuda) {
                 Ok(_) => engines_that_detected_any_device.push(EngineType::Cuda),
                 Err(e) => {
                     eprintln!("Error detecting CUDA devices: {:?}", e);
@@ -256,8 +282,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
         #[cfg(feature = "opencl")]
         {
-            let opencl_engine = GpuEngine::new(OpenClEngine::new());
-            match detect_devices_for_engine(opencl_engine, cli.gpu_status_file.clone(), EngineType::OpenCL) {
+            match detect_devices_for_engine(gpu_opencl_engine, cli.gpu_status_file.clone(), EngineType::OpenCL) {
                 Ok(_) => engines_that_detected_any_device.push(EngineType::OpenCL),
                 Err(e) => {
                     eprintln!("Error detecting OpenCL devices: {:?}", e);
@@ -268,8 +293,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
         #[cfg(feature = "metal")]
         {
-            let metal_engine = GpuEngine::new(MetalEngine::new());
-            match detect_devices_for_engine(metal_engine, cli.gpu_status_file.clone(), EngineType::Metal) {
+            match detect_devices_for_engine(gpu_metal_engine, cli.gpu_status_file.clone(), EngineType::Metal) {
                 Ok(_) => engines_that_detected_any_device.push(EngineType::Metal),
                 Err(e) => {
                     eprintln!("Error detecting Metal devices: {:?}", e);
@@ -354,8 +378,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     #[cfg(feature = "nvidia")]
     {
         if selected_cli_engine == EngineType::Cuda {
-            let cuda_engine = GpuEngine::new(CudaEngine::new());
-            match get_devices_to_use_per_engine(cuda_engine, &cli.use_devices) {
+            match get_devices_to_use_per_engine(gpu_cuda_engine.clone().clone(), &cli.use_devices) {
                 Ok((devices, num)) => {
                     num_devices = num;
                     devices_to_use.append(&mut devices.clone());
@@ -372,8 +395,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     #[cfg(feature = "opencl")]
     {
         if selected_cli_engine == EngineType::OpenCL {
-            let opencl_engine = GpuEngine::new(OpenClEngine::new());
-            match get_devices_to_use_per_engine(opencl_engine, &cli.use_devices) {
+            match get_devices_to_use_per_engine(gpu_opencl_engine.clone(), &cli.use_devices) {
                 Ok((devices, num)) => {
                     num_devices = num;
                     devices_to_use.append(&mut devices.clone());
@@ -390,8 +412,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     #[cfg(feature = "metal")]
     {
         if selected_cli_engine == EngineType::Metal {
-            let metal_engine = GpuEngine::new(MetalEngine::new());
-            match get_devices_to_use_per_engine(metal_engine, &cli.use_devices) {
+            match get_devices_to_use_per_engine(gpu_metal_engine.clone(), &cli.use_devices) {
                 Ok((devices, num)) => {
                     num_devices = num;
                     devices_to_use.append(&mut devices.clone());
@@ -409,7 +430,12 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         #[cfg(feature = "nvidia")]
         {
             if selected_cli_engine == EngineType::Cuda {
-                match find_optimal_per_engine(num_devices, devices_to_use.clone(), CudaEngine::new(), config.clone()) {
+                match find_optimal_per_engine(
+                    num_devices,
+                    devices_to_use.clone(),
+                    gpu_cuda_engine.clone(),
+                    config.clone(),
+                ) {
                     Ok(_) => {},
                     Err(e) => {
                         eprintln!("Error finding optimal CUDA devices: {:?}", e);
@@ -423,8 +449,12 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         #[cfg(feature = "opencl")]
         {
             if selected_cli_engine == EngineType::OpenCL {
-                match find_optimal_per_engine(num_devices, devices_to_use.clone(), OpenClEngine::new(), config.clone())
-                {
+                match find_optimal_per_engine(
+                    num_devices,
+                    devices_to_use.clone(),
+                    gpu_opencl_engine.clone(),
+                    config.clone(),
+                ) {
                     Ok(_) => {},
                     Err(e) => {
                         eprintln!("Error finding optimal OpenCL devices: {:?}", e);
@@ -438,7 +468,12 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         #[cfg(feature = "metal")]
         {
             if selected_cli_engine == EngineType::Metal {
-                match find_optimal_per_engine(num_devices, devices_to_use.clone(), MetalEngine::new(), config.clone()) {
+                match find_optimal_per_engine(
+                    num_devices,
+                    devices_to_use.clone(),
+                    gpu_metal_engine.clone(),
+                    config.clone(),
+                ) {
                     Ok(_) => {},
                     Err(e) => {
                         eprintln!("Error finding optimal Metal devices: {:?}", e);
@@ -492,7 +527,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     {
         if selected_cli_engine == EngineType::Cuda {
             match dispatch_mining_for_engine(
-                CudaEngine::new(),
+                gpu_cuda_engine.clone(),
                 num_devices,
                 devices_to_use.clone(),
                 config.clone(),
@@ -513,7 +548,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     {
         if selected_cli_engine == EngineType::OpenCL {
             match dispatch_mining_for_engine(
-                OpenClEngine::new(),
+                gpu_opencl_engine.clone(),
                 num_devices,
                 devices_to_use.clone(),
                 config.clone(),
@@ -534,7 +569,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     {
         if selected_cli_engine == EngineType::Metal {
             match dispatch_mining_for_engine(
-                MetalEngine::new(),
+                gpu_metal_engine.clone(),
                 num_devices,
                 devices_to_use.clone(),
                 config.clone(),
@@ -1065,7 +1100,7 @@ fn get_devices_to_use_per_engine<T: EngineImpl>(
 fn find_optimal_per_engine<T: EngineImpl + Send + 'static + Clone>(
     num_devices: u32,
     devices_to_use: Vec<u32>,
-    engine: T,
+    engine: GpuEngine<T>,
     config: ConfigFile,
 ) -> Result<(), anyhow::Error> {
     let mut best_hashrate = 0;
@@ -1088,7 +1123,7 @@ fn find_optimal_per_engine<T: EngineImpl + Send + 'static + Clone>(
             }
             let c = config.clone();
             let x = tx.clone();
-            let gpu = GpuEngine::new(engine.clone());
+            let gpu = engine.clone();
             threads.push(thread::spawn(move || {
                 run_thread(gpu, num_devices as u64, i as u32, c, true, x)
             }));
@@ -1156,7 +1191,7 @@ fn find_optimal_per_engine<T: EngineImpl + Send + 'static + Clone>(
 }
 
 fn dispatch_mining_for_engine<T: EngineImpl + Send + 'static + Clone>(
-    engine: T,
+    engine: GpuEngine<T>,
     num_devices: u32,
     devices_to_use: Vec<u32>,
     config: ConfigFile,
@@ -1170,7 +1205,7 @@ fn dispatch_mining_for_engine<T: EngineImpl + Send + 'static + Clone>(
             println!("Starting thread for device index: {}", i);
             let c = config.clone();
             let curr_stats_tx = stats_tx.clone();
-            let gpu = GpuEngine::new(engine.clone());
+            let gpu = engine.clone();
             threads.push(thread::spawn(move || {
                 run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_tx)
             }));
