@@ -1,11 +1,32 @@
 use std::any::Any;
 
-use crate::{
-    context_impl::ContextImpl,
-    engines_manager::EngineType,
-    function_impl::FunctionImpl,
-    gpu_status_file::GpuStatus,
-};
+use crate::{context_impl::ContextImpl, function_impl::FunctionImpl, gpu_status_file::GpuStatus};
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum EngineType {
+    Cuda,
+    OpenCL,
+    Metal,
+}
+
+impl EngineType {
+    pub fn to_string(&self) -> String {
+        match self {
+            EngineType::Cuda => "CUDA".to_string(),
+            EngineType::OpenCL => "OpenCL".to_string(),
+            EngineType::Metal => "Metal".to_string(),
+        }
+    }
+
+    pub fn from_string(engine_type: &str) -> Self {
+        match engine_type {
+            "CUDA" => EngineType::Cuda,
+            "OpenCL" => EngineType::OpenCL,
+            "Metal" => EngineType::Metal,
+            _ => panic!("Unknown engine type"),
+        }
+    }
+}
 
 pub trait EngineImpl {
     type Context: Any;

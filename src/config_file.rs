@@ -6,8 +6,6 @@ use std::{
 
 use anyhow;
 
-use crate::engines_manager::EngineType;
-
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub(crate) struct ConfigFile {
     pub tari_address: String,

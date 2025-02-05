@@ -12,7 +12,7 @@ use log::{debug, error, info, warn};
 
 use crate::{
     context_impl::ContextImpl,
-    engines_manager::EngineType,
+    engine_impl::EngineType,
     function_impl::FunctionImpl,
     gpu_status_file::GpuStatus,
     EngineImpl,
@@ -42,7 +42,7 @@ impl EngineImpl for CudaEngine {
         Ok(num_devices)
     }
 
-    fn get_engine_type(&self) -> crate::engines_manager::EngineType {
+    fn get_engine_type(&self) -> EngineType {
         EngineType::Cuda
     }
 

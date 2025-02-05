@@ -20,14 +20,14 @@ use opencl3::{
 
 use crate::{
     context_impl::ContextImpl,
-    engine_impl::EngineImpl,
-    engines_manager::EngineType,
+    engine_impl::{EngineImpl, EngineType},
     function_impl::FunctionImpl,
     gpu_status_file::GpuStatus,
 };
 
 const LOG_TARGET: &str = "tari::gpuminer::opencl";
 
+#[derive(Clone)]
 pub struct OpenClEngineInner {
     platforms: Vec<Platform>,
 }
@@ -57,7 +57,7 @@ impl EngineImpl for OpenClEngine {
         Ok(())
     }
 
-    fn get_engine_type(&self) -> crate::engines_manager::EngineType {
+    fn get_engine_type(&self) -> EngineType {
         EngineType::OpenCL
     }
 
