@@ -11,6 +11,7 @@ pub struct GpuStatus {
     pub device_index: u32,
     pub device_name: String,
     pub is_available: bool,
+    pub is_excluded: bool,
     pub grid_size: u32,
     pub max_grid_size: u32,
     pub block_size: u32,

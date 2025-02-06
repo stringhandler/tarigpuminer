@@ -90,6 +90,7 @@ impl EngineImpl for MetalEngine {
                 device_name: device.name().to_string(),
                 device_index: id as u32,
                 is_available: true,
+                is_excluded: false,
                 max_grid_size: 0,
                 grid_size: 0,
                 block_size: 0,

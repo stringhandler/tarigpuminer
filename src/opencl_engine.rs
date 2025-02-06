@@ -91,8 +91,9 @@ impl EngineImpl for OpenClEngine {
                 println!("device: {}", &name);
                 let mut gpu = GpuStatus {
                     device_name: name,
-                    device_index: id as u32,
+                    device_index: total_devices as u32,
                     is_available: true,
+                    is_excluded: false,
                     max_grid_size: dev.max_work_group_size().unwrap_or_default() as u32,
                     grid_size: 0,
                     block_size: 0,

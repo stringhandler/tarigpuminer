@@ -23,6 +23,7 @@ use cust::{
     prelude::*,
 };
 use engine_impl::EngineType;
+use gpu_status_file::GpuStatus;
 use http::stats_collector::{self, HashrateSample};
 use log::{debug, error, info, warn};
 use minotari_app_grpc::tari_rpc::{
@@ -183,14 +184,6 @@ struct Cli {
     #[arg(short = 'd', long, alias = "detect")]
     detect: Option<bool>,
 
-    /// (Optional) use only specific devices
-    #[arg(long, alias = "use-devices", num_args=0.., value_delimiter=',')]
-    use_devices: Option<Vec<u32>>,
-
-    /// (Optional) exclude specific devices from use
-    #[arg(long, alias = "exclude-devices", num_args=0.., value_delimiter=',')]
-    exclude_devices: Option<Vec<u32>>,
-
     /// Gpu status file path
     #[arg(short, long, value_name = "gpu-status")]
     gpu_status_file: Option<PathBuf>,
@@ -334,6 +327,22 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         },
     };
 
+    let default_gpu_status_path = {
+        let path = current_dir().expect("no current directory");
+        path
+    };
+    let mut gpu_status_path = cli.gpu_status_file.clone().unwrap_or(default_gpu_status_path);
+    let gpu_status_file_name = format!("{}_gpu_status.json", selected_cli_engine.to_string());
+    gpu_status_path.push(gpu_status_file_name);
+
+    let gpu_status_file = GpuStatusFile::load(&gpu_status_path).unwrap_or_else(|_| {
+        let default = GpuStatusFile::default();
+        default
+            .save(&gpu_status_path)
+            .expect("Could not save default gpu status");
+        default
+    });
+
     if let Some(ref addr) = cli.tari_address {
         config.tari_address = addr.clone();
     }
@@ -378,7 +387,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     #[cfg(feature = "nvidia")]
     {
         if selected_cli_engine == EngineType::Cuda {
-            match get_devices_to_use_per_engine(gpu_cuda_engine.clone().clone(), &cli.use_devices) {
+            match get_devices_to_use_per_engine(gpu_cuda_engine.clone().clone(), &gpu_status_file.gpu_devices) {
                 Ok((devices, num)) => {
                     num_devices = num;
                     devices_to_use.append(&mut devices.clone());
@@ -395,7 +404,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     #[cfg(feature = "opencl")]
     {
         if selected_cli_engine == EngineType::OpenCL {
-            match get_devices_to_use_per_engine(gpu_opencl_engine.clone(), &cli.use_devices) {
+            match get_devices_to_use_per_engine(gpu_opencl_engine.clone(), &gpu_status_file.gpu_devices) {
                 Ok((devices, num)) => {
                     num_devices = num;
                     devices_to_use.append(&mut devices.clone());
@@ -412,7 +421,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     #[cfg(feature = "metal")]
     {
         if selected_cli_engine == EngineType::Metal {
-            match get_devices_to_use_per_engine(gpu_metal_engine.clone(), &cli.use_devices) {
+            match get_devices_to_use_per_engine(gpu_metal_engine.clone(), &gpu_status_file.gpu_devices) {
                 Ok((devices, num)) => {
                     num_devices = num;
                     devices_to_use.append(&mut devices.clone());
@@ -1032,12 +1041,12 @@ fn detect_devices_for_engine<T: EngineImpl>(
     let any_gpu_available = gpu_devices.iter().any(|g| g.is_available);
     let status_file = GpuStatusFile::new(gpu_devices);
     let default_path = {
-        let mut path = current_dir().expect("no current directory");
-        let path_for_engine_status = format!("{}_gpu_status.json", engine_type.to_string());
-        path.push(path_for_engine_status);
+        let path = current_dir().expect("no current directory");
         path
     };
-    let path = gpu_status_file.unwrap_or(default_path);
+    let mut path = gpu_status_file.unwrap_or(default_path);
+    let path_for_engine_status = format!("{}_gpu_status.json", engine_type.to_string());
+    path.push(path_for_engine_status);
 
     let _ = match GpuStatusFile::load(&path) {
         Ok(_) => {
@@ -1065,26 +1074,21 @@ fn detect_devices_for_engine<T: EngineImpl>(
 
 fn get_devices_to_use_per_engine<T: EngineImpl>(
     engine: GpuEngine<T>,
-    allowed_devices: &Option<Vec<u32>>,
+    devices: &Vec<GpuStatus>,
 ) -> Result<(Vec<u32>, u32), anyhow::Error> {
     let num_devices = engine.num_devices()?;
 
-    // create a list of devices (by index) to use
-    let devices_to_use: Vec<u32> = (0..num_devices)
-        .filter(|x| {
-            if let Some(use_devices) = allowed_devices {
-                use_devices.contains(x)
-            } else {
-                true
-            }
-        })
-        .filter(|x| {
-            if let Some(excluded_devices) = allowed_devices {
-                !excluded_devices.contains(x)
-            } else {
-                true
-            }
-        })
+    devices.iter().for_each(|d| {
+        println!(
+            "Device: {} is available: {} is excluded {}",
+            d.device_index, d.is_available, d.is_excluded
+        );
+    });
+
+    let devices_to_use: Vec<u32> = devices
+        .iter()
+        .filter(|d| d.is_available && !d.is_excluded)
+        .map(|d| d.device_index)
         .collect();
 
     info!(target: LOG_TARGET, "Device indexes to use: {:?} from the total number of devices: {:?}", devices_to_use, num_devices);

@@ -57,6 +57,7 @@ impl EngineImpl for CudaEngine {
             let mut gpu = GpuStatus {
                 device_name: name.clone(),
                 is_available: true,
+                is_excluded: false,
                 block_size: 0,
                 device_index: i,
                 grid_size: 0,
