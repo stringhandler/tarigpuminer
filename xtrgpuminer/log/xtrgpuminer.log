@@ -212,3 +212,67 @@
 2025-02-05 16:12:55.948196450 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
 2025-02-05 16:12:55.948219970 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
 2025-02-05 16:12:55.948234040 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-09 19:45:24.391840405 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:45:24.391870064 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:45:24.403387700 INFO  Config file loaded successfully // src/main.rs:262
+2025-02-09 19:45:24.403410080 INFO  Config file loaded successfully // src/main.rs:262
+2025-02-09 19:45:24.403472169 INFO  Device indexes to use: [0] from the total number of devices: 1 // src/main.rs:353
+2025-02-09 19:45:24.403482009 INFO  Device indexes to use: [0] from the total number of devices: 1 // src/main.rs:353
+2025-02-09 19:45:24.403513539 INFO  Stats collector started // src/main.rs:452
+2025-02-09 19:45:24.403521849 INFO  Stats collector started // src/main.rs:452
+2025-02-09 19:45:24.403547379 INFO  HTTP server runs on port: 18000 // src/main.rs:458
+2025-02-09 19:45:24.403558439 INFO  HTTP server runs on port: 18000 // src/main.rs:458
+2025-02-09 19:45:24.403571668 INFO  HTTP server enabled // src/main.rs:460
+2025-02-09 19:45:24.403580028 INFO  HTTP server enabled // src/main.rs:460
+2025-02-09 19:45:24.403708607 INFO  Http: starts the http server on the port 18000 // src/http/server.rs:59
+2025-02-09 19:45:24.403732987 INFO  Http: starts the http server on the port 18000 // src/http/server.rs:59
+2025-02-09 19:45:24.404044155 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src/http/server.rs:66
+2025-02-09 19:45:24.404064245 INFO  Starting HTTP listener address Ok(127.0.0.1:18000) // src/http/server.rs:66
+2025-02-09 19:45:24.404965948 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-09 19:45:24.404991528 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-09 19:45:24.405010748 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-09 19:45:24.405021518 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-09 19:45:24.405264726 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-09 19:45:24.405285336 INFO  Creating node client: http://127.0.0.1:18142 // src/node_client.rs:109
+2025-02-09 19:45:24.405310796 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-09 19:45:24.405327436 INFO  Connecting to http://127.0.0.1:18142 // src/node_client.rs:30
+2025-02-09 19:45:24.405374615 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-09 19:45:24.405394135 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-09 19:45:24.405501104 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-09 19:45:24.405525994 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-09 19:45:29.406444641 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-09 19:45:29.406484171 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-09 19:45:29.407146296 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-09 19:45:29.407173486 ERROR Failed to connect to base node: tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 111, kind: ConnectionRefused, message: "Connection refused" }))) // src/node_client.rs:39
+2025-02-09 19:45:46.987924854 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:45:46.987955604 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:45:47.000348124 WARN  Error detecting OpenCL devices: No gpu device detected // src/multi_engine_wrapper.rs:112
+2025-02-09 19:45:47.000369244 WARN  Error detecting OpenCL devices: No gpu device detected // src/multi_engine_wrapper.rs:112
+2025-02-09 19:45:47.000391073 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-09 19:45:47.000406903 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-09 19:45:47.069200100 INFO  Create CUDA main function // src/cuda_engine.rs:99
+2025-02-09 19:45:47.069225540 INFO  Create CUDA main function // src/cuda_engine.rs:99
+2025-02-09 19:45:47.097735492 INFO  Gpu miner startup process completed successfully // src/main.rs:121
+2025-02-09 19:45:47.097752942 INFO  Gpu miner startup process completed successfully // src/main.rs:121
+2025-02-09 19:48:23.307420677 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:48:23.307439427 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:48:23.528874336 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:48:23.528894196 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:48:23.528909406 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-09 19:48:23.528918036 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-09 19:48:23.567306480 INFO  Create CUDA main function // src/cuda_engine.rs:99
+2025-02-09 19:48:23.567329880 INFO  Create CUDA main function // src/cuda_engine.rs:99
+2025-02-09 19:48:23.593425593 INFO  Gpu miner startup process completed successfully // src/main.rs:121
+2025-02-09 19:48:23.593442292 INFO  Gpu miner startup process completed successfully // src/main.rs:121
+2025-02-09 19:49:26.599468933 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:49:26.599503943 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:49:26.849412468 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:49:26.849433697 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-09 19:49:26.849449627 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-09 19:49:26.849458337 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-09 19:49:26.901538445 INFO  Create CUDA main function // src/cuda_engine.rs:99
+2025-02-09 19:49:26.901559905 INFO  Create CUDA main function // src/cuda_engine.rs:99
+2025-02-09 19:49:26.925585563 INFO  Gpu miner startup process completed successfully // src/main.rs:115
+2025-02-09 19:49:26.925601563 INFO  Gpu miner startup process completed successfully // src/main.rs:115
+2025-02-09 19:50:10.876051931 ERROR Panic occurred at file: 'src/multi_engine_wrapper.rs', line: 174: Unknown engine type // src/main.rs:106
+2025-02-09 19:50:10.876077171 ERROR Panic occurred at file: 'src/multi_engine_wrapper.rs', line: 174: Unknown engine type // src/main.rs:106

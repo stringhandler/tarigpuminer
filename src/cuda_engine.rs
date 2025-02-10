@@ -12,10 +12,10 @@ use log::{debug, error, info, warn};
 
 use crate::{
     context_impl::ContextImpl,
-    engine_impl::EngineType,
+    engine_impl::EngineImpl,
     function_impl::FunctionImpl,
     gpu_status_file::GpuStatus,
-    EngineImpl,
+    multi_engine_wrapper::EngineType,
 };
 const LOG_TARGET: &str = "tari::gpuminer::cuda";
 #[derive(Clone)]

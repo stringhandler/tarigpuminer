@@ -20,6 +20,7 @@ use crate::{
     engine_impl::EngineImpl,
     function_impl::FunctionImpl,
     gpu_status_file::GpuStatus,
+    multi_engine_wrapper::EngineType,
 };
 
 const LOG_TARGET: &str = "tari::gpuminer::metal";
@@ -73,6 +74,10 @@ impl EngineImpl for MetalEngine {
     fn init(&mut self) -> Result<(), anyhow::Error> {
         debug!(target: LOG_TARGET,"MetalEngine: Initializing");
         Ok(())
+    }
+
+    fn get_engine_type(&self) -> EngineType {
+        EngineType::Metal
     }
 
     fn num_devices(&self) -> Result<u32, anyhow::Error> {

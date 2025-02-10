@@ -22,7 +22,6 @@ use cust::{
     memory::{AsyncCopyDestination, DeviceCopy},
     prelude::*,
 };
-use engine_impl::EngineType;
 use gpu_status_file::GpuStatus;
 use http::stats_collector::{self, HashrateSample};
 use log::{debug, error, info, warn};
@@ -32,6 +31,7 @@ use minotari_app_grpc::tari_rpc::{
     NewBlockTemplate,
     TransactionOutput as GrpcTransactionOutput,
 };
+use multi_engine_wrapper::{EngineType, MultiEngineWrapper};
 use num_format::{Locale, ToFormattedString};
 use tari_common::configuration::Network;
 use tari_common_types::{tari_address::TariAddress, types::FixedHash};
@@ -52,12 +52,6 @@ use tokio::{
     time::sleep,
 };
 
-#[cfg(feature = "nvidia")]
-use crate::cuda_engine::CudaEngine;
-#[cfg(feature = "metal")]
-use crate::metal_engine::MetalEngine;
-#[cfg(feature = "opencl")]
-use crate::opencl_engine::OpenClEngine;
 use crate::{
     config_file::ConfigFile,
     engine_impl::EngineImpl,
@@ -70,6 +64,7 @@ use crate::{
 
 mod config_file;
 mod context_impl;
+mod multi_engine_wrapper;
 
 #[cfg(feature = "nvidia")]
 mod cuda_engine;
@@ -228,72 +223,21 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         },
     };
 
-    #[cfg(feature = "nvidia")]
-    let mut gpu_cuda_engine: GpuEngine<CudaEngine>;
-
-    #[cfg(feature = "opencl")]
-    let mut gpu_opencl_engine: GpuEngine<OpenClEngine>;
-
-    #[cfg(feature = "metal")]
-    let mut gpu_metal_engine: GpuEngine<MetalEngine>;
-
-    #[cfg(feature = "nvidia")]
-    {
-        gpu_cuda_engine = GpuEngine::new(CudaEngine::new());
-        gpu_cuda_engine.init()?;
-    }
-
-    #[cfg(feature = "opencl")]
-    {
-        gpu_opencl_engine = GpuEngine::new(OpenClEngine::new());
-        gpu_opencl_engine.init()?;
-    }
-
-    #[cfg(feature = "metal")]
-    {
-        gpu_metal_engine = GpuEngine::new(MetalEngine::new());
-        gpu_metal_engine.init()?;
-    }
+    let mut multi_engine_wrapper = MultiEngineWrapper::new(selected_cli_engine.clone());
+    multi_engine_wrapper.init().expect("Could not init engine");
 
     // http server
     let mut shutdown = Shutdown::new();
 
     // just create the context to test if it can run
     if let Some(_detect) = cli.detect {
-        let mut engines_that_detected_any_device: Vec<EngineType> = vec![];
+        let default_path = {
+            let path = current_dir().expect("no current directory");
+            path
+        };
 
-        #[cfg(feature = "nvidia")]
-        {
-            match detect_devices_for_engine(gpu_cuda_engine, cli.gpu_status_file.clone(), EngineType::Cuda) {
-                Ok(_) => engines_that_detected_any_device.push(EngineType::Cuda),
-                Err(e) => {
-                    eprintln!("Error detecting CUDA devices: {:?}", e);
-                    error!(target: LOG_TARGET, "Error detecting CUDA devices: {:?}", e);
-                },
-            }
-        }
-
-        #[cfg(feature = "opencl")]
-        {
-            match detect_devices_for_engine(gpu_opencl_engine, cli.gpu_status_file.clone(), EngineType::OpenCL) {
-                Ok(_) => engines_that_detected_any_device.push(EngineType::OpenCL),
-                Err(e) => {
-                    eprintln!("Error detecting OpenCL devices: {:?}", e);
-                    error!(target: LOG_TARGET, "Error detecting OpenCL devices: {:?}", e);
-                },
-            }
-        }
-
-        #[cfg(feature = "metal")]
-        {
-            match detect_devices_for_engine(gpu_metal_engine, cli.gpu_status_file.clone(), EngineType::Metal) {
-                Ok(_) => engines_that_detected_any_device.push(EngineType::Metal),
-                Err(e) => {
-                    eprintln!("Error detecting Metal devices: {:?}", e);
-                    error!(target: LOG_TARGET, "Error detecting Metal devices: {:?}", e);
-                },
-            }
-        }
+        let mut engines_that_detected_any_device: Vec<EngineType> =
+            multi_engine_wrapper.create_status_files_for_each_engine(cli.gpu_status_file.unwrap_or(default_path));
 
         if engines_that_detected_any_device.is_empty() {
             eprintln!("No GPU devices detected");
@@ -381,118 +325,117 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         config.max_template_failures = max_template_failures as u64;
     }
 
+    let devices = &gpu_status_file.gpu_devices;
     let mut num_devices: u32 = 0;
     let mut devices_to_use: Vec<u32> = vec![];
 
-    #[cfg(feature = "nvidia")]
-    {
-        if selected_cli_engine == EngineType::Cuda {
-            match get_devices_to_use_per_engine(gpu_cuda_engine.clone().clone(), &gpu_status_file.gpu_devices) {
-                Ok((devices, num)) => {
-                    num_devices = num;
-                    devices_to_use.append(&mut devices.clone());
-                },
-                Err(e) => {
-                    eprintln!("Error getting CUDA devices: {:?}", e);
-                    error!(target: LOG_TARGET, "Error getting CUDA devices: {:?}", e);
-                    process::exit(1);
-                },
-            }
-        }
-    }
+    let num_devices = multi_engine_wrapper.num_devices()?;
 
-    #[cfg(feature = "opencl")]
-    {
-        if selected_cli_engine == EngineType::OpenCL {
-            match get_devices_to_use_per_engine(gpu_opencl_engine.clone(), &gpu_status_file.gpu_devices) {
-                Ok((devices, num)) => {
-                    num_devices = num;
-                    devices_to_use.append(&mut devices.clone());
-                },
-                Err(e) => {
-                    eprintln!("Error getting OpenCL devices: {:?}", e);
-                    error!(target: LOG_TARGET, "Error getting OpenCL devices: {:?}", e);
-                    process::exit(1);
-                },
-            }
-        }
-    }
+    devices.iter().for_each(|d| {
+        println!(
+            "Device: {} is available: {} is excluded {}",
+            d.device_index, d.is_available, d.is_excluded
+        );
+    });
 
-    #[cfg(feature = "metal")]
-    {
-        if selected_cli_engine == EngineType::Metal {
-            match get_devices_to_use_per_engine(gpu_metal_engine.clone(), &gpu_status_file.gpu_devices) {
-                Ok((devices, num)) => {
-                    num_devices = num;
-                    devices_to_use.append(&mut devices.clone());
-                },
-                Err(e) => {
-                    eprintln!("Error getting Metal devices: {:?}", e);
-                    error!(target: LOG_TARGET, "Error getting Metal devices: {:?}", e);
-                    process::exit(1);
-                },
-            }
-        }
-    }
+    let devices_to_use: Vec<u32> = devices
+        .iter()
+        .filter(|d| d.is_available && !d.is_excluded)
+        .map(|d| d.device_index)
+        .collect();
+
+    info!(target: LOG_TARGET, "Device indexes to use: {:?} from the total number of devices: {:?}", devices_to_use, num_devices);
+
+    println!(
+        "Device indexes to use: {:?} from the total number of devices: {:?}",
+        devices_to_use, num_devices
+    );
 
     if cli.find_optimal {
-        #[cfg(feature = "nvidia")]
-        {
-            if selected_cli_engine == EngineType::Cuda {
-                match find_optimal_per_engine(
-                    num_devices,
-                    devices_to_use.clone(),
-                    gpu_cuda_engine.clone(),
-                    config.clone(),
-                ) {
-                    Ok(_) => {},
-                    Err(e) => {
-                        eprintln!("Error finding optimal CUDA devices: {:?}", e);
-                        error!(target: LOG_TARGET, "Error finding optimal CUDA devices: {:?}", e);
-                        process::exit(1);
+        let mut best_hashrate = 0;
+        let mut best_grid_size = 1;
+        let mut current_grid_size = 32;
+        let mut is_doubling_stage = true;
+        let mut last_grid_size_increase = 0;
+        let mut prev_hashrate = 0;
+
+        while true {
+            dbg!("here");
+            let mut config = config.clone();
+            config.single_grid_size = current_grid_size;
+            // config.block_size = ;
+            let mut threads = vec![];
+            let (tx, rx) = tokio::sync::broadcast::channel(100);
+            for i in 0..num_devices {
+                if !devices_to_use.contains(&i) {
+                    continue;
+                }
+                let c = config.clone();
+                let gpu = multi_engine_wrapper.clone();
+                let x = tx.clone();
+                threads.push(thread::spawn(move || {
+                    run_thread(gpu, num_devices as u64, i as u32, c, true, x)
+                }));
+            }
+            let thread_len = threads.len();
+            let mut thread_hashrate = Vec::with_capacity(thread_len);
+            for t in threads {
+                match t.join() {
+                    Ok(res) => match res {
+                        Ok(hashrate) => {
+                            info!(target: LOG_TARGET, "Thread join succeeded: {}", hashrate.to_formatted_string(&Locale::en));
+                            thread_hashrate.push(hashrate);
+                        },
+                        Err(err) => {
+                            eprintln!("Thread join succeeded but result failed: {:?}", err);
+                            error!(target: LOG_TARGET, "Thread join succeeded but result failed: {:?}", err);
+                        },
+                    },
+                    Err(err) => {
+                        eprintln!("Thread join failed: {:?}", err);
+                        error!(target: LOG_TARGET, "Thread join failed: {:?}", err);
                     },
                 }
             }
-        }
-
-        #[cfg(feature = "opencl")]
-        {
-            if selected_cli_engine == EngineType::OpenCL {
-                match find_optimal_per_engine(
-                    num_devices,
-                    devices_to_use.clone(),
-                    gpu_opencl_engine.clone(),
-                    config.clone(),
-                ) {
-                    Ok(_) => {},
-                    Err(e) => {
-                        eprintln!("Error finding optimal OpenCL devices: {:?}", e);
-                        error!(target: LOG_TARGET, "Error finding optimal OpenCL devices: {:?}", e);
-                        process::exit(1);
-                    },
+            let total_hashrate: u64 = thread_hashrate.iter().sum();
+            if total_hashrate > best_hashrate {
+                best_hashrate = total_hashrate;
+                best_grid_size = current_grid_size;
+                // best_grid_size = config.single_grid_size;
+                // best_block_size = config.block_size;
+                println!(
+                    "Best hashrate: {} grid_size: {}, current_grid: {} block_size: {} Prev Hash {}",
+                    best_hashrate, best_grid_size, current_grid_size, config.block_size, prev_hashrate
+                );
+            }
+            // if total_hashrate < prev_hashrate {
+            //     println!("total decreased, breaking");
+            //     break;
+            // }
+            if is_doubling_stage {
+                if total_hashrate > prev_hashrate {
+                    last_grid_size_increase = current_grid_size;
+                    current_grid_size = current_grid_size * 2;
+                } else {
+                    is_doubling_stage = false;
+                    last_grid_size_increase = last_grid_size_increase / 2;
+                    current_grid_size = current_grid_size.saturating_sub(last_grid_size_increase);
+                }
+            } else {
+                // Bisecting stage
+                if last_grid_size_increase < 2 {
+                    break;
+                }
+                if total_hashrate > prev_hashrate {
+                    last_grid_size_increase = last_grid_size_increase / 2;
+                    current_grid_size += last_grid_size_increase;
+                } else {
+                    last_grid_size_increase = last_grid_size_increase / 2;
+                    current_grid_size = current_grid_size.saturating_sub(last_grid_size_increase);
                 }
             }
+            prev_hashrate = total_hashrate;
         }
-
-        #[cfg(feature = "metal")]
-        {
-            if selected_cli_engine == EngineType::Metal {
-                match find_optimal_per_engine(
-                    num_devices,
-                    devices_to_use.clone(),
-                    gpu_metal_engine.clone(),
-                    config.clone(),
-                ) {
-                    Ok(_) => {},
-                    Err(e) => {
-                        eprintln!("Error finding optimal Metal devices: {:?}", e);
-                        error!(target: LOG_TARGET, "Error finding optimal Metal devices: {:?}", e);
-                        process::exit(1);
-                    },
-                }
-            }
-        }
-
         return Ok(());
     }
 
@@ -532,73 +475,19 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         }));
     }
 
-    #[cfg(feature = "nvidia")]
-    {
-        if selected_cli_engine == EngineType::Cuda {
-            match dispatch_mining_for_engine(
-                gpu_cuda_engine.clone(),
-                num_devices,
-                devices_to_use.clone(),
-                config.clone(),
-                benchmark,
-                stats_tx.clone(),
-                &mut threads,
-            ) {
-                Ok(_) => {},
-                Err(e) => {
-                    eprintln!("Error dispatching mining for CUDA devices: {:?}", e);
-                    error!(target: LOG_TARGET, "Error dispatching mining for CUDA devices: {:?}", e);
-                },
-            }
+    for i in 0..num_devices {
+        println!("Device index: {}", i);
+        if devices_to_use.contains(&i) {
+            println!("Starting thread for device index: {}", i);
+            let c = config.clone();
+            let gpu = multi_engine_wrapper.clone();
+            let curr_stats_tx = stats_tx.clone();
+            threads.push(thread::spawn(move || {
+                run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_tx)
+            }));
         }
     }
 
-    #[cfg(feature = "opencl")]
-    {
-        if selected_cli_engine == EngineType::OpenCL {
-            match dispatch_mining_for_engine(
-                gpu_opencl_engine.clone(),
-                num_devices,
-                devices_to_use.clone(),
-                config.clone(),
-                benchmark,
-                stats_tx.clone(),
-                &mut threads,
-            ) {
-                Ok(_) => {},
-                Err(e) => {
-                    eprintln!("Error dispatching mining for OpenCL devices: {:?}", e);
-                    error!(target: LOG_TARGET, "Error dispatching mining for OpenCL devices: {:?}", e);
-                },
-            }
-        }
-    }
-
-    #[cfg(feature = "metal")]
-    {
-        if selected_cli_engine == EngineType::Metal {
-            match dispatch_mining_for_engine(
-                gpu_metal_engine.clone(),
-                num_devices,
-                devices_to_use.clone(),
-                config.clone(),
-                benchmark,
-                stats_tx.clone(),
-                &mut threads,
-            ) {
-                Ok(_) => {},
-                Err(e) => {
-                    eprintln!("Error dispatching mining for Metal devices: {:?}", e);
-                    error!(target: LOG_TARGET, "Error dispatching mining for Metal devices: {:?}", e);
-                },
-            }
-        }
-    }
-
-    // for t in threads {
-    //     t.join().unwrap()?;
-    // }
-    // let mut res = Ok(());
     let thread_len = threads.len();
     let mut thread_hashrate = Vec::with_capacity(thread_len);
     for t in threads {
@@ -697,8 +586,8 @@ async fn run_template_height_watcher(
     Ok(0)
 }
 
-fn run_thread<T: EngineImpl>(
-    gpu_engine: GpuEngine<T>,
+fn run_thread(
+    gpu_engine: MultiEngineWrapper,
     num_threads: u64,
     thread_index: u32,
     config: ConfigFile,
@@ -724,7 +613,7 @@ fn run_thread<T: EngineImpl>(
 
     let context = gpu_engine.create_context(thread_index)?;
 
-    let gpu_function = gpu_engine.get_main_function(&context)?;
+    let gpu_function = gpu_engine.create_main_function(&context)?;
 
     // let (mut grid_size, block_size) = gpu_function
     //    .suggested_launch_configuration()
@@ -1024,201 +913,6 @@ async fn get_template(
     let mining_hash = header.mining_hash().clone();
     Ok((target_difficulty, block, header, mining_hash))
 }
-
-fn detect_devices_for_engine<T: EngineImpl>(
-    engine: GpuEngine<T>,
-    gpu_status_file: Option<PathBuf>,
-    engine_type: EngineType,
-) -> Result<(), anyhow::Error> {
-    let gpu_devices = match engine.detect_devices() {
-        Ok(gpu_stats) => gpu_stats,
-        Err(error) => {
-            warn!(target: LOG_TARGET, "No gpu device detected");
-            return Err(anyhow::anyhow!("Gpu detect error: {:?}", error));
-        },
-    };
-
-    let any_gpu_available = gpu_devices.iter().any(|g| g.is_available);
-    let status_file = GpuStatusFile::new(gpu_devices);
-    let default_path = {
-        let path = current_dir().expect("no current directory");
-        path
-    };
-    let mut path = gpu_status_file.unwrap_or(default_path);
-    let path_for_engine_status = format!("{}_gpu_status.json", engine_type.to_string());
-    path.push(path_for_engine_status);
-
-    let _ = match GpuStatusFile::load(&path) {
-        Ok(_) => {
-            if let Err(err) = status_file.save(&path) {
-                warn!(target: LOG_TARGET,"Error saving gpu status: {}", err);
-            }
-            status_file
-        },
-        Err(_) => {
-            if let Err(err) = fs::create_dir_all(path.parent().expect("no parent")) {
-                warn!(target: LOG_TARGET, "Error creating directory: {}", err);
-            }
-            if let Err(err) = status_file.save(&path) {
-                warn!(target: LOG_TARGET,"Error saving gpu status: {}", err);
-            }
-            status_file
-        },
-    };
-
-    if any_gpu_available {
-        return Ok(());
-    }
-    return Err(anyhow::anyhow!("No available gpu device detected"));
-}
-
-fn get_devices_to_use_per_engine<T: EngineImpl>(
-    engine: GpuEngine<T>,
-    devices: &Vec<GpuStatus>,
-) -> Result<(Vec<u32>, u32), anyhow::Error> {
-    let num_devices = engine.num_devices()?;
-
-    devices.iter().for_each(|d| {
-        println!(
-            "Device: {} is available: {} is excluded {}",
-            d.device_index, d.is_available, d.is_excluded
-        );
-    });
-
-    let devices_to_use: Vec<u32> = devices
-        .iter()
-        .filter(|d| d.is_available && !d.is_excluded)
-        .map(|d| d.device_index)
-        .collect();
-
-    info!(target: LOG_TARGET, "Device indexes to use: {:?} from the total number of devices: {:?}", devices_to_use, num_devices);
-
-    println!(
-        "Device indexes to use: {:?} from the total number of devices: {:?}",
-        devices_to_use, num_devices
-    );
-
-    Ok((devices_to_use, num_devices))
-}
-
-fn find_optimal_per_engine<T: EngineImpl + Send + 'static + Clone>(
-    num_devices: u32,
-    devices_to_use: Vec<u32>,
-    engine: GpuEngine<T>,
-    config: ConfigFile,
-) -> Result<(), anyhow::Error> {
-    let mut best_hashrate = 0;
-    let mut best_grid_size = 1;
-    let mut current_grid_size = 32;
-    let mut is_doubling_stage = true;
-    let mut last_grid_size_increase = 0;
-    let mut prev_hashrate = 0;
-
-    while true {
-        dbg!("here");
-        let mut config = config.clone();
-        config.single_grid_size = current_grid_size;
-        // config.block_size = ;
-        let mut threads = vec![];
-        let (tx, rx) = tokio::sync::broadcast::channel(100);
-        for i in 0..num_devices {
-            if !devices_to_use.contains(&i) {
-                continue;
-            }
-            let c = config.clone();
-            let x = tx.clone();
-            let gpu = engine.clone();
-            threads.push(thread::spawn(move || {
-                run_thread(gpu, num_devices as u64, i as u32, c, true, x)
-            }));
-        }
-        let thread_len = threads.len();
-        let mut thread_hashrate = Vec::with_capacity(thread_len);
-        for t in threads {
-            match t.join() {
-                Ok(res) => match res {
-                    Ok(hashrate) => {
-                        info!(target: LOG_TARGET, "Thread join succeeded: {}", hashrate.to_formatted_string(&Locale::en));
-                        thread_hashrate.push(hashrate);
-                    },
-                    Err(err) => {
-                        eprintln!("Thread join succeeded but result failed: {:?}", err);
-                        error!(target: LOG_TARGET, "Thread join succeeded but result failed: {:?}", err);
-                    },
-                },
-                Err(err) => {
-                    eprintln!("Thread join failed: {:?}", err);
-                    error!(target: LOG_TARGET, "Thread join failed: {:?}", err);
-                },
-            }
-        }
-        let total_hashrate: u64 = thread_hashrate.iter().sum();
-        if total_hashrate > best_hashrate {
-            best_hashrate = total_hashrate;
-            best_grid_size = current_grid_size;
-            // best_grid_size = config.single_grid_size;
-            // best_block_size = config.block_size;
-            println!(
-                "Best hashrate: {} grid_size: {}, current_grid: {} block_size: {} Prev Hash {}",
-                best_hashrate, best_grid_size, current_grid_size, config.block_size, prev_hashrate
-            );
-        }
-        // if total_hashrate < prev_hashrate {
-        //     println!("total decreased, breaking");
-        //     break;
-        // }
-        if is_doubling_stage {
-            if total_hashrate > prev_hashrate {
-                last_grid_size_increase = current_grid_size;
-                current_grid_size = current_grid_size * 2;
-            } else {
-                is_doubling_stage = false;
-                last_grid_size_increase = last_grid_size_increase / 2;
-                current_grid_size = current_grid_size.saturating_sub(last_grid_size_increase);
-            }
-        } else {
-            // Bisecting stage
-            if last_grid_size_increase < 2 {
-                break;
-            }
-            if total_hashrate > prev_hashrate {
-                last_grid_size_increase = last_grid_size_increase / 2;
-                current_grid_size += last_grid_size_increase;
-            } else {
-                last_grid_size_increase = last_grid_size_increase / 2;
-                current_grid_size = current_grid_size.saturating_sub(last_grid_size_increase);
-            }
-        }
-        prev_hashrate = total_hashrate;
-    }
-    return Ok(());
-}
-
-fn dispatch_mining_for_engine<T: EngineImpl + Send + 'static + Clone>(
-    engine: GpuEngine<T>,
-    num_devices: u32,
-    devices_to_use: Vec<u32>,
-    config: ConfigFile,
-    benchmark: bool,
-    stats_tx: Sender<HashrateSample>,
-    threads: &mut Vec<thread::JoinHandle<Result<u64, anyhow::Error>>>,
-) -> Result<(), anyhow::Error> {
-    for i in 0..num_devices {
-        println!("Device index: {}", i);
-        if devices_to_use.contains(&i) {
-            println!("Starting thread for device index: {}", i);
-            let c = config.clone();
-            let curr_stats_tx = stats_tx.clone();
-            let gpu = engine.clone();
-            threads.push(thread::spawn(move || {
-                run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_tx)
-            }));
-        }
-    }
-
-    Ok(())
-}
-
 fn copy_u8_to_u64(input: Vec<u8>) -> Vec<u64> {
     let mut output: Vec<u64> = Vec::with_capacity(input.len() / 8);
 

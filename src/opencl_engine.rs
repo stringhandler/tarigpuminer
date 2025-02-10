@@ -20,9 +20,10 @@ use opencl3::{
 
 use crate::{
     context_impl::ContextImpl,
-    engine_impl::{EngineImpl, EngineType},
+    engine_impl::EngineImpl,
     function_impl::FunctionImpl,
     gpu_status_file::GpuStatus,
+    multi_engine_wrapper::EngineType,
 };
 
 const LOG_TARGET: &str = "tari::gpuminer::opencl";
