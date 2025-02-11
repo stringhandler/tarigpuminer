@@ -586,28 +586,25 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 }
 
 async fn run_template_height_watcher(config: ConfigFile, shutdown: ShutdownSignal) -> Result<u64, anyhow::Error> {
-    dbg!("here");
     let client_type = if config.p2pool_enabled {
         ClientType::P2Pool(TariAddress::from_str(config.tari_address.as_str()).unwrap())
     } else {
         ClientType::BaseNode
     };
 
-    dbg!("here");
     let mut node_client =
         node_client::create_client(client_type, &config.tari_node_url, config.coinbase_extra.clone()).await?;
 
     let mut curr_node_height = 0;
     let mut curr_p2pool_height = 0;
-    let mut curr_hash = FixedHash::default();
-    let mut curr_p2pool_hash = FixedHash::default();
+    let mut curr_hash = vec![];
+    let mut curr_p2pool_hash = vec![];
     let mut last_template_time = Instant::now();
-    let mut must_refresh = false;
     // let mut curr_block_template = None;
 
     let timeout_dur = std::time::Duration::from_secs(config.template_timeout_secs);
     loop {
-        dbg!("here");
+        let mut must_refresh = false;
         if shutdown.is_triggered() {
             break;
         }
@@ -617,7 +614,6 @@ async fn run_template_height_watcher(config: ConfigFile, shutdown: ShutdownSigna
         //     d.map(|d| (d.header.height, d.header.prev_hash, d.p2pool_height, d.p2pool_prev_hash))
         // };
 
-        dbg!("here");
         let height_data = match tokio::time::timeout(timeout_dur, node_client.get_height()).await {
             Ok(Ok(height_data)) => height_data,
             Ok(Err(e)) => {
@@ -630,18 +626,18 @@ async fn run_template_height_watcher(config: ConfigFile, shutdown: ShutdownSigna
             },
         };
         if height_data.height > curr_node_height || height_data.tip_hash != curr_hash {
-            info!(target: LOG_TARGET, "Tari chain changed. Dumping block template. New height:{}, old height:{}. New hash:{}", height_data.height, curr_node_height, height_data.tip_hash);
+            info!(target: LOG_TARGET, "Tari chain changed. Dumping block template. New height:{}, old height:{}.", height_data.height, curr_node_height);
             must_refresh = true;
             // clear_block_template_cache().await;
         }
         if height_data.p2pool_height > curr_p2pool_height || curr_p2pool_hash != height_data.p2pool_tip_hash {
-            info!(target: LOG_TARGET, "P2Pool chain changed. Dumping block template. New height:{}, old height:{}. New hash:{}", height_data.p2pool_height, curr_p2pool_height, height_data.p2pool_tip_hash);
+            info!(target: LOG_TARGET, "P2Pool chain changed. Dumping block template. New height:{}, old height:{}.", height_data.p2pool_height, curr_p2pool_height);
             must_refresh = true;
             // clear_block_template_cache().await;
         }
 
-        dbg!("here");
         if last_template_time.elapsed() > Duration::from_secs(config.template_refresh_secs) {
+            info!(target: LOG_TARGET, "Template refresh time elapsed. Dumping block template.");
             must_refresh = true;
             last_template_time = Instant::now();
         }
@@ -651,9 +647,15 @@ async fn run_template_height_watcher(config: ConfigFile, shutdown: ShutdownSigna
         curr_p2pool_height = height_data.p2pool_height;
         curr_p2pool_hash = height_data.p2pool_tip_hash;
 
-        dbg!("here");
+        println!(
+            "Current height: {}, P2Pool height: {} time: {}s",
+            curr_node_height,
+            curr_p2pool_height,
+            last_template_time.elapsed().as_secs()
+        );
+
         if must_refresh {
-            dbg!("here");
+            println!("Refreshing block template");
             let template = match tokio::time::timeout(
                 std::time::Duration::from_secs(config.template_timeout_secs),
                 get_template_from_client(&mut node_client, config.clone()),
@@ -672,6 +674,7 @@ async fn run_template_height_watcher(config: ConfigFile, shutdown: ShutdownSigna
             };
             // clear_block_template_cache().await;
             replace_block_template_cache(template).await;
+            println!("Block template refreshed");
         }
 
         // let height = template

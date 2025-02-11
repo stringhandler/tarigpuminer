@@ -68,13 +68,12 @@ impl NodeClient for P2poolClientWrapper {
         info!(target: LOG_TARGET, "P2poolClientWrapper: getting height");
         let response = self.client.get_tip_info(GetTipInfoRequest {}).await?.into_inner();
 
-        // let height_data = HeightData {
-        //     height: response.height,
-        //     hash: response.hash,
-
-        // }
-        // Ok(response.height)
-        todo!()
+        Ok(HeightData {
+            height: response.node_height,
+            tip_hash: response.node_tip_hash,
+            p2pool_height: response.p2pool_sha_height,
+            p2pool_tip_hash: response.p2pool_sha_tip_hash,
+        })
     }
 
     async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, Error> {

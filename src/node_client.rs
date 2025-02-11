@@ -158,9 +158,9 @@ impl TryFrom<GetNewBlockResult> for NewBlockResult {
 
 pub(crate) struct HeightData {
     pub height: u64,
-    pub tip_hash: FixedHash,
+    pub tip_hash: Vec<u8>,
     pub p2pool_height: u64,
-    pub p2pool_tip_hash: FixedHash,
+    pub p2pool_tip_hash: Vec<u8>,
 }
 
 impl Client {
