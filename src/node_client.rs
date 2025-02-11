@@ -14,7 +14,7 @@ use minotari_app_grpc::tari_rpc::{
     NewBlockTemplateResponse,
     PowAlgo,
 };
-use tari_common_types::tari_address::TariAddress;
+use tari_common_types::{tari_address::TariAddress, types::FixedHash};
 use tonic::{async_trait, transport::Channel};
 
 use crate::p2pool_client::P2poolClientWrapper;
@@ -89,11 +89,17 @@ impl NodeClient for BaseNodeClientWrapper {
         info!(target: LOG_TARGET, "Block submitted: {:?}", res);
         Ok(())
     }
+
+    async fn get_height(&mut self) -> Result<HeightData, anyhow::Error> {
+        todo!()
+    }
 }
 
 #[async_trait]
 pub trait NodeClient {
     async fn get_version(&mut self) -> Result<u64, anyhow::Error>;
+
+    async fn get_height(&mut self) -> Result<HeightData, anyhow::Error>;
 
     async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, anyhow::Error>;
 
@@ -150,12 +156,27 @@ impl TryFrom<GetNewBlockResult> for NewBlockResult {
     }
 }
 
+pub(crate) struct HeightData {
+    pub height: u64,
+    pub tip_hash: FixedHash,
+    pub p2pool_height: u64,
+    pub p2pool_tip_hash: FixedHash,
+}
+
 impl Client {
     pub async fn get_version(&mut self) -> Result<u64, anyhow::Error> {
         match self {
             Client::BaseNode(client) => client.get_version().await,
             Client::Benchmark(client) => client.get_version().await,
             Client::P2Pool(client) => client.get_version().await,
+        }
+    }
+
+    pub async fn get_height(&mut self) -> Result<HeightData, anyhow::Error> {
+        match self {
+            Client::BaseNode(client) => client.get_height().await,
+            Client::Benchmark(client) => client.get_height().await,
+            Client::P2Pool(client) => client.get_height().await,
         }
     }
 
@@ -221,5 +242,9 @@ impl NodeClient for BenchmarkNodeClient {
 
     async fn submit_block(&mut self, block: Block) -> Result<(), anyhow::Error> {
         Ok(())
+    }
+
+    async fn get_height(&mut self) -> Result<HeightData, anyhow::Error> {
+        todo!()
     }
 }
