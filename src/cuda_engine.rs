@@ -56,11 +56,9 @@ impl EngineImpl for CudaEngine {
             let name = device.name()?;
             let mut gpu = GpuStatus {
                 device_name: name.clone(),
-                is_available: true,
-                is_excluded: false,
-                block_size: 0,
+                recommended_block_size: 0,
                 device_index: i,
-                grid_size: 0,
+                recommended_grid_size: 0,
                 max_grid_size: device.get_attribute(DeviceAttribute::MaxGridDimX).unwrap_or_default() as u32,
             };
             if let Ok(context) = self
@@ -72,8 +70,8 @@ impl EngineImpl for CudaEngine {
                     .inspect_err(|e| error!(target: LOG_TARGET, "Could not create function {:?}", e))
                 {
                     if let Ok((grid, block)) = func.suggested_launch_configuration(&(i as usize)) {
-                        gpu.grid_size = grid;
-                        gpu.block_size = block;
+                        gpu.recommended_grid_size = grid;
+                        gpu.recommended_block_size = block;
                     }
                     devices.push(gpu);
                     total_devices += 1;

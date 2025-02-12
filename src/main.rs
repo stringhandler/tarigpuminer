@@ -325,20 +325,17 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         config.max_template_failures = max_template_failures as u64;
     }
 
-    let devices = &gpu_status_file.gpu_devices;
-    let mut num_devices: u32 = 0;
-    let mut devices_to_use: Vec<u32> = vec![];
+    let devices_settings = &gpu_status_file.gpu_devices_settings;
 
-    let num_devices = multi_engine_wrapper.num_devices()?;
-
-    devices.iter().for_each(|d| {
+    devices_settings.iter().for_each(|d| {
         println!(
             "Device: {} is available: {} is excluded {}",
             d.device_index, d.is_available, d.is_excluded
         );
     });
 
-    let devices_to_use: Vec<u32> = devices
+    let num_devices = multi_engine_wrapper.num_devices()?;
+    let devices_to_use: Vec<u32> = devices_settings
         .iter()
         .filter(|d| d.is_available && !d.is_excluded)
         .map(|d| d.device_index)

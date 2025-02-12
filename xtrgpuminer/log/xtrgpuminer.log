@@ -276,3 +276,23 @@
 2025-02-09 19:49:26.925601563 INFO  Gpu miner startup process completed successfully // src/main.rs:115
 2025-02-09 19:50:10.876051931 ERROR Panic occurred at file: 'src/multi_engine_wrapper.rs', line: 174: Unknown engine type // src/main.rs:106
 2025-02-09 19:50:10.876077171 ERROR Panic occurred at file: 'src/multi_engine_wrapper.rs', line: 174: Unknown engine type // src/main.rs:106
+2025-02-12 14:23:01.217709884 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-12 14:23:01.217744034 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-12 14:23:01.431406378 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-12 14:23:01.431429317 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-12 14:23:01.431445407 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-12 14:23:01.431454147 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-12 14:23:01.483316990 INFO  Create CUDA main function // src/cuda_engine.rs:97
+2025-02-12 14:23:01.483348600 INFO  Create CUDA main function // src/cuda_engine.rs:97
+2025-02-12 14:23:01.509095498 INFO  Gpu miner startup process completed successfully // src/main.rs:115
+2025-02-12 14:23:01.509111208 INFO  Gpu miner startup process completed successfully // src/main.rs:115
+2025-02-12 14:23:50.050228389 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-12 14:23:50.050258809 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-12 14:23:50.277059420 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-12 14:23:50.277083100 INFO  Init CUDA Engine // src/cuda_engine.rs:35
+2025-02-12 14:23:50.277101639 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-12 14:23:50.277111819 INFO  Detect CUDA devices // src/cuda_engine.rs:50
+2025-02-12 14:23:50.318753283 INFO  Create CUDA main function // src/cuda_engine.rs:97
+2025-02-12 14:23:50.318776552 INFO  Create CUDA main function // src/cuda_engine.rs:97
+2025-02-12 14:23:50.346341306 INFO  Gpu miner startup process completed successfully // src/main.rs:115
+2025-02-12 14:23:50.346358046 INFO  Gpu miner startup process completed successfully // src/main.rs:115

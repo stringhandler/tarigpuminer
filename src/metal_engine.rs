@@ -94,11 +94,9 @@ impl EngineImpl for MetalEngine {
             let mut gpu_device = GpuStatus {
                 device_name: device.name().to_string(),
                 device_index: id as u32,
-                is_available: true,
-                is_excluded: false,
                 max_grid_size: 0,
-                grid_size: 0,
-                block_size: 0,
+                recommended_grid_size: 0,
+                recommended_block_size: 0,
             };
 
             if let Ok(context) = self.create_context(gpu_device.device_index).inspect_err(|error| {
@@ -113,8 +111,8 @@ impl EngineImpl for MetalEngine {
                             error!(target: LOG_TARGET,"Failed to get suggested launch configuration: {:?}", error);
                         })
                     {
-                        gpu_device.block_size = block_size;
-                        gpu_device.grid_size = grid_size;
+                        gpu_device.recommended_block_size = block_size;
+                        gpu_device.recommended_grid_size = grid_size;
                         gpu_device.max_grid_size = grid_size;
                     }
                     gpu_devices.push(gpu_device);

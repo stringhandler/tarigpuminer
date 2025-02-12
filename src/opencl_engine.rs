@@ -93,11 +93,9 @@ impl EngineImpl for OpenClEngine {
                 let mut gpu = GpuStatus {
                     device_name: name,
                     device_index: total_devices as u32,
-                    is_available: true,
-                    is_excluded: false,
                     max_grid_size: dev.max_work_group_size().unwrap_or_default() as u32,
-                    grid_size: 0,
-                    block_size: 0,
+                    recommended_grid_size: 0,
+                    recommended_block_size: 0,
                 };
                 if let Ok(context) = self
                     .create_context(u32::try_from(id).unwrap())
@@ -108,8 +106,8 @@ impl EngineImpl for OpenClEngine {
                         .inspect_err(|e| error!(target: LOG_TARGET, "Could not create function {:?}", e))
                     {
                         if let Ok((grid, block)) = func.suggested_launch_configuration(&dev) {
-                            gpu.grid_size = grid;
-                            gpu.block_size = block;
+                            gpu.recommended_grid_size = grid;
+                            gpu.recommended_block_size = block;
                         }
                         gpu_devices.push(gpu);
                         total_devices += 1;

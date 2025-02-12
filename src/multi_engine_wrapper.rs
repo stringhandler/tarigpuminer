@@ -72,10 +72,10 @@ impl MultiEngineWrapper {
         engine_type: EngineType,
         gpu_devices: Vec<GpuStatus>,
     ) -> Result<(), anyhow::Error> {
-        let status_file = GpuStatusFile::new(gpu_devices);
-
         let file_name = format!("{}_gpu_status.json", engine_type.to_string());
         let status_file_path = destination_folder.join(file_name);
+
+        let status_file = GpuStatusFile::new(gpu_devices, &status_file_path);
 
         let _ = match GpuStatusFile::load(&status_file_path) {
             Ok(_) => {
