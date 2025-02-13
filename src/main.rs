@@ -325,27 +325,26 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         config.max_template_failures = max_template_failures as u64;
     }
 
-    let devices_settings = &gpu_status_file.gpu_devices_settings;
+    let gpu_devices = gpu_status_file.gpu_devices.clone();
 
-    devices_settings.iter().for_each(|d| {
+    gpu_devices.iter().for_each(|(device_name, gpu_device)| {
         println!(
             "Device: {} is available: {} is excluded {}",
-            d.device_index, d.is_available, d.is_excluded
+            device_name, gpu_device.settings.is_available, gpu_device.settings.is_excluded
         );
     });
 
     let num_devices = multi_engine_wrapper.num_devices()?;
-    let devices_to_use: Vec<u32> = devices_settings
-        .iter()
-        .filter(|d| d.is_available && !d.is_excluded)
+    let devices_to_use: Vec<u32> = gpu_devices
+        .into_values()
+        .filter(|d| d.settings.is_available && !d.settings.is_excluded)
         .map(|d| d.device_index)
         .collect();
 
-    info!(target: LOG_TARGET, "Device indexes to use: {:?} from the total number of devices: {:?}", devices_to_use, num_devices);
-
     println!(
         "Device indexes to use: {:?} from the total number of devices: {:?}",
-        devices_to_use, num_devices
+        devices_to_use.len(),
+        num_devices
     );
 
     if cli.find_optimal {
@@ -463,6 +462,8 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
     let current_template_height = Arc::new(AtomicU64::new(0));
 
+    info!(target: LOG_TARGET, "Starting template height watcher");
+
     if num_devices > 0 && !benchmark {
         let c = config.clone();
         let s = shutdown.to_signal();
@@ -471,6 +472,8 @@ async fn main_inner() -> Result<(), anyhow::Error> {
             runtime.block_on(async { run_template_height_watcher(current_template_height, c, s).await })
         }));
     }
+
+    info!(target: LOG_TARGET, "Starting mining threads: {}", devices_to_use.len());
 
     for i in 0..num_devices {
         println!("Device index: {}", i);

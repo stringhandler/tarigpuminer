@@ -11,7 +11,7 @@ use crate::opencl_engine::OpenClEngine;
 use crate::{
     engine_impl::EngineImpl,
     gpu_engine::GpuEngine,
-    gpu_status_file::{GpuStatus, GpuStatusFile},
+    gpu_status_file::{GpuDevice, GpuStatus, GpuStatusFile},
 };
 
 const LOG_TARGET: &str = "tari::gpuminer::multi_engine_wrapper";
@@ -70,7 +70,7 @@ impl MultiEngineWrapper {
         &self,
         destination_folder: &PathBuf,
         engine_type: EngineType,
-        gpu_devices: Vec<GpuStatus>,
+        gpu_devices: Vec<GpuDevice>,
     ) -> Result<(), anyhow::Error> {
         let file_name = format!("{}_gpu_status.json", engine_type.to_string());
         let status_file_path = destination_folder.join(file_name);
@@ -187,7 +187,7 @@ impl EngineImpl for MultiEngineWrapper {
         }
     }
 
-    fn detect_devices(&self) -> Result<Vec<GpuStatus>, anyhow::Error> {
+    fn detect_devices(&self) -> Result<Vec<GpuDevice>, anyhow::Error> {
         match self.selected_engine {
             #[cfg(feature = "nvidia")]
             EngineType::Cuda => self.cuda_engine.detect_devices(),

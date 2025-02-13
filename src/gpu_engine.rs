@@ -1,4 +1,7 @@
-use crate::{engine_impl::EngineImpl, gpu_status_file::GpuStatus};
+use crate::{
+    engine_impl::EngineImpl,
+    gpu_status_file::{GpuDevice, GpuStatus},
+};
 
 #[derive(Clone)]
 pub struct GpuEngine<TEngineImpl: EngineImpl> {
@@ -18,7 +21,7 @@ impl<TEngineImpl: EngineImpl> GpuEngine<TEngineImpl> {
         self.inner.num_devices()
     }
 
-    pub fn detect_devices(&self) -> Result<Vec<GpuStatus>, anyhow::Error> {
+    pub fn detect_devices(&self) -> Result<Vec<GpuDevice>, anyhow::Error> {
         self.inner.detect_devices()
     }
 

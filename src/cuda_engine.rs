@@ -8,13 +8,13 @@ use cust::{
     module::{ModuleJitOption, ModuleJitOption::DetermineTargetFromContext},
     prelude::{Module, *},
 };
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 
 use crate::{
     context_impl::ContextImpl,
     engine_impl::EngineImpl,
     function_impl::FunctionImpl,
-    gpu_status_file::GpuStatus,
+    gpu_status_file::{GpuDevice, GpuSettings, GpuStatus},
     multi_engine_wrapper::EngineType,
 };
 const LOG_TARGET: &str = "tari::gpuminer::cuda";
@@ -46,7 +46,7 @@ impl EngineImpl for CudaEngine {
         EngineType::Cuda
     }
 
-    fn detect_devices(&self) -> Result<Vec<GpuStatus>, anyhow::Error> {
+    fn detect_devices(&self) -> Result<Vec<GpuDevice>, anyhow::Error> {
         info!(target: LOG_TARGET, "Detect CUDA devices");
         let num_devices = Device::num_devices()?;
         let mut total_devices = 0;
@@ -54,12 +54,15 @@ impl EngineImpl for CudaEngine {
         for i in 0..num_devices {
             let device = Device::get_device(i)?;
             let name = device.name()?;
-            let mut gpu = GpuStatus {
+            let mut gpu = GpuDevice {
                 device_name: name.clone(),
-                recommended_block_size: 0,
                 device_index: i,
-                recommended_grid_size: 0,
-                max_grid_size: device.get_attribute(DeviceAttribute::MaxGridDimX).unwrap_or_default() as u32,
+                settings: GpuSettings::default(),
+                status: GpuStatus {
+                    recommended_block_size: 0,
+                    recommended_grid_size: 0,
+                    max_grid_size: device.get_attribute(DeviceAttribute::MaxGridDimX).unwrap_or_default() as u32,
+                },
             };
             if let Ok(context) = self
                 .create_context(u32::try_from(i).unwrap())
@@ -70,8 +73,8 @@ impl EngineImpl for CudaEngine {
                     .inspect_err(|e| error!(target: LOG_TARGET, "Could not create function {:?}", e))
                 {
                     if let Ok((grid, block)) = func.suggested_launch_configuration(&(i as usize)) {
-                        gpu.recommended_grid_size = grid;
-                        gpu.recommended_block_size = block;
+                        gpu.status.recommended_grid_size = grid;
+                        gpu.status.recommended_block_size = block;
                     }
                     devices.push(gpu);
                     total_devices += 1;

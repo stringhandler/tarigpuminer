@@ -19,7 +19,7 @@ use crate::{
     context_impl::ContextImpl,
     engine_impl::EngineImpl,
     function_impl::FunctionImpl,
-    gpu_status_file::GpuStatus,
+    gpu_status_file::{GpuDevice, GpuStatus},
     multi_engine_wrapper::EngineType,
 };
 
@@ -84,19 +84,22 @@ impl EngineImpl for MetalEngine {
         Ok(Device::all().len() as u32)
     }
 
-    fn detect_devices(&self) -> Result<Vec<GpuStatus>, anyhow::Error> {
+    fn detect_devices(&self) -> Result<Vec<GpuDevice>, anyhow::Error> {
         let mut total_devices = 0;
-        let mut gpu_devices: Vec<GpuStatus> = vec![];
+        let mut gpu_devices: Vec<GpuDevice> = vec![];
 
         let all_devices = Device::all();
 
         for (id, device) in all_devices.into_iter().enumerate() {
-            let mut gpu_device = GpuStatus {
+            let mut gpu_device = GpuDevice {
                 device_name: device.name().to_string(),
                 device_index: id as u32,
-                max_grid_size: 0,
-                recommended_grid_size: 0,
-                recommended_block_size: 0,
+                settings: Default::default(),
+                status: GpuStatus {
+                    recommended_block_size: 0,
+                    recommended_grid_size: 0,
+                    max_grid_size: 0,
+                },
             };
 
             if let Ok(context) = self.create_context(gpu_device.device_index).inspect_err(|error| {
@@ -111,9 +114,9 @@ impl EngineImpl for MetalEngine {
                             error!(target: LOG_TARGET,"Failed to get suggested launch configuration: {:?}", error);
                         })
                     {
-                        gpu_device.recommended_block_size = block_size;
-                        gpu_device.recommended_grid_size = grid_size;
-                        gpu_device.max_grid_size = grid_size;
+                        gpu_device.status.recommended_block_size = block_size;
+                        gpu_device.status.recommended_grid_size = grid_size;
+                        gpu_device.status.max_grid_size = grid_size;
                     }
                     gpu_devices.push(gpu_device);
                     total_devices += 1;
