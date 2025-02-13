@@ -5,8 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::anyhow;
-use log::{debug, info, warn};
+use log::warn;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct GpuStatus {
