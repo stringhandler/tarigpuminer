@@ -156,7 +156,7 @@ jobs:
 
       - name: Install nVida cuda toolkit
         uses: jimver/cuda-toolkit@v0.2.16
-        if: ${{ matrix.builds.features == 'nvidia' }}
+        if: contains(matrix.builds.features, 'nvidia')
         with:
           method: network
           sub-packages: '["nvcc", "cudart"]'
@@ -170,7 +170,7 @@ jobs:
             protobuf-compiler
 
       - name: Install Linux dependencies - Ubuntu / OpenCL
-        if: ${{ startsWith(runner.os,'Linux') && ( ! matrix.builds.cross ) && ( matrix.builds.features == 'opencl3' ) }}
+        if: ${{ startsWith(runner.os,'Linux') && ( ! matrix.builds.cross ) && contains(matrix.builds.features, 'opencl') }}
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends --assume-yes \

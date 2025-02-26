@@ -13,7 +13,7 @@
     "rust": "nightly-2024-07-07",
     "target": "x86_64-unknown-linux-gnu",
     "cross": false,
-    "features": "opencl3"
+    "features": "opencl"
   },
   {
     "name": "opencl-linux-arm64",
@@ -21,7 +21,7 @@
     "rust": "nightly-2024-07-07",
     "target": "aarch64-unknown-linux-gnu",
     "cross": true,
-    "features": "opencl3",
+    "features": "opencl",
     "build_enabled": true,
     "best_effort": true
   },
@@ -31,7 +31,25 @@
     "rust": "nightly-2024-07-07",
     "target": "riscv64gc-unknown-linux-gnu",
     "cross": true,
-    "features": "opencl3",
+    "features": "opencl",
+    "build_enabled": true,
+    "best_effort": true
+  },
+  {
+    "name": "combined-linux-x86_64",
+    "runs-on": "ubuntu-20.04",
+    "rust": "nightly-2024-07-07",
+    "target": "x86_64-unknown-linux-gnu",
+    "cross": false,
+    "features": "nvidia,opencl"
+  },
+  {
+    "name": "combined-linux-arm64",
+    "runs-on": "ubuntu-latest",
+    "rust": "nightly-2024-07-07",
+    "target": "aarch64-unknown-linux-gnu",
+    "cross": true,
+    "features": "nvidia,opencl",
     "build_enabled": true,
     "best_effort": true
   },
@@ -41,15 +59,31 @@
     "rust": "stable",
     "target": "x86_64-apple-darwin",
     "cross": false,
-    "features": "opencl3"
+    "features": "opencl"
   },
   {
-    "name": "opencl-macos-arm64",
+    "name": "metal-macos-arm64",
     "runs-on": "macos-14",
     "rust": "stable",
     "target": "aarch64-apple-darwin",
     "cross": false,
-    "features": "opencl3"
+    "features": "metal"
+  },
+  {
+    "name": "combined-macos-x86_64",
+    "runs-on": "macos-13",
+    "rust": "stable",
+    "target": "x86_64-apple-darwin",
+    "cross": false,
+    "features": "metal,opencl"
+  },
+  {
+    "name": "combined-macos-arm64",
+    "runs-on": "macos-14",
+    "rust": "stable",
+    "target": "aarch64-apple-darwin",
+    "cross": false,
+    "features": "metal,opencl"
   },
   {
     "name": "cuda-windows-x64",
@@ -66,7 +100,7 @@
     "target": "x86_64-pc-windows-msvc",
     "rustflags": "-L C:/vcpkg/packages/opencl_x64-windows/lib",
     "cross": false,
-    "features": "opencl3"
+    "features": "opencl"
   },
   {
     "name": "cuda-windows-arm64",
@@ -85,7 +119,27 @@
     "target": "aarch64-pc-windows-msvc",
     "rustflags": "-L C:/vcpkg/packages/opencl_x64-windows/lib",
     "cross": false,
-    "features": "opencl3",
+    "features": "opencl",
+    "build_enabled": true,
+    "best_effort": true
+  },
+  {
+    "name": "combined-windows-x64",
+    "runs-on": "windows-2019",
+    "rust": "stable",
+    "target": "x86_64-pc-windows-msvc",
+    "rustflags": "-L C:/vcpkg/packages/opencl_x64-windows/lib",
+    "cross": false,
+    "features": "opencl,nvidia"
+  },
+  {
+    "name": "combined-windows-arm64",
+    "runs-on": "windows-latest",
+    "rust": "stable",
+    "target": "aarch64-pc-windows-msvc",
+    "rustflags": "-L C:/vcpkg/packages/opencl_x64-windows/lib",
+    "cross": false,
+    "features": "opencl,nvidia",
     "build_enabled": true,
     "best_effort": true
   }
