@@ -940,8 +940,8 @@ async fn get_template_from_client(
             .unwrap()
             .try_into()
             .map_err(|s: String| anyhow!(s))?;
-        let mining_hash = header.mining_hash().clone();
         header.timestamp = EpochTime::now();
+        let mining_hash = header.mining_hash().clone();
         info!(target: LOG_TARGET,
             "block result target difficulty: {}, block timestamp: {}, mining_hash: {}",
             block_result.target_difficulty.to_string(),
