@@ -6,20 +6,20 @@ version = "0.2.12"
 [dependencies]
 anyhow = "*"
 clap = { version = "4.5.0", features = ["derive"] }
-minotari_app_grpc = { git = "http://github.com/stringhandler/tari", branch = "st-add-p2pool-tip-info" }
+minotari_app_grpc = { git = "http://github.com/tari-project/tari" }
 num-format = "0.4.4"
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0.68"
 sha3 = "0.10"
-tari_common = { git = "http://github.com/stringhandler/tari", branch = "st-add-p2pool-tip-info" }
-tari_common_types = { git = "http://github.com/stringhandler/tari", branch = "st-add-p2pool-tip-info" }
-tari_core = { git = "http://github.com/stringhandler/tari", branch = "st-add-p2pool-tip-info", default-features = false, features = [
+tari_common = { git = "http://github.com/tari-project/tari" }
+tari_common_types = { git = "http://github.com/tari-project/tari" }
+tari_core = { git = "https://github.com/tari-project/tari", default-features = false, features = [
   "transactions",
 ] }
 tari_crypto = { version = "0.21", features = ["borsh"] }
-tari_key_manager = { git = "http://github.com/stringhandler/tari", branch = "st-add-p2pool-tip-info" }
-tari_script = { git = "http://github.com/stringhandler/tari", branch = "st-add-p2pool-tip-info" }
-tari_shutdown = { git = "http://github.com/stringhandler/tari", branch = "st-add-p2pool-tip-info" }
+tari_key_manager = { git = "http://github.com/tari-project/tari" }
+tari_script = { git = "http://github.com/tari-project/tari" }
+tari_shutdown = { git = "https://github.com/tari-project/tari.git" }
 tari_utilities = "0.8"
 
 libsqlite3-sys = { version = "0.25.1", features = ["bundled"] }

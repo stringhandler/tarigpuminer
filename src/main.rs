@@ -639,7 +639,6 @@ async fn run_template_height_watcher(config: ConfigFile, shutdown: ShutdownSigna
         if last_template_time.elapsed() > Duration::from_secs(config.template_refresh_secs) {
             info!(target: LOG_TARGET, "Template refresh time elapsed. Dumping block template.");
             must_refresh = true;
-            last_template_time = Instant::now();
         }
 
         curr_node_height = height_data.height;
@@ -672,6 +671,7 @@ async fn run_template_height_watcher(config: ConfigFile, shutdown: ShutdownSigna
                     continue;
                 },
             };
+            last_template_time = Instant::now();
             // clear_block_template_cache().await;
             replace_block_template_cache(template).await;
             println!("Block template refreshed");
@@ -933,6 +933,7 @@ async fn get_template_from_client(
             node_client.get_new_block(NewBlockTemplate::default()),
         )
         .await??;
+        // dbg!(&block_result);
         let block = block_result.result.block.unwrap();
         let mut header: BlockHeader = block
             .clone()
@@ -948,9 +949,24 @@ async fn get_template_from_client(
             block.clone().header.unwrap().timestamp.to_string(),
             header.mining_hash().clone().to_string()
         );
+        println!(
+            "New template, difficulty: {}, minerdata {}",
+            block_result.target_difficulty,
+            block_result
+                .result
+                .miner_data
+                .as_ref()
+                .map(|m| m.target_difficulty)
+                .unwrap_or_default()
+        );
         // return Ok(());
         return Ok(BlockTemplateData {
-            target_difficulty: block_result.target_difficulty,
+            target_difficulty: block_result
+                .result
+                .miner_data
+                .as_ref()
+                .map(|m| m.target_difficulty)
+                .unwrap_or(block_result.target_difficulty),
             block,
             header,
             mining_hash,

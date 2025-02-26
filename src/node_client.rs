@@ -135,6 +135,7 @@ pub enum ClientType {
     P2Pool(TariAddress),
 }
 
+#[derive(Debug)]
 pub struct NewBlockResult {
     pub result: GetNewBlockResult,
     pub target_difficulty: u64,
