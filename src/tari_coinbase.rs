@@ -1,18 +1,27 @@
+use rand::rngs::OsRng;
 use tari_common_types::tari_address::TariAddress;
 use tari_core::{
     self,
     consensus::ConsensusConstants,
+    one_sided::{
+        diffie_hellman_stealth_domain_hasher,
+        shared_secret_to_output_encryption_key,
+        shared_secret_to_output_spending_key,
+    },
     transactions::{
-        key_manager::{MemoryDbKeyManager, TariKeyId},
         tari_amount::MicroMinotari,
         transaction_components::{
             encrypted_data::PaymentId,
             CoinBaseExtra,
             RangeProofType,
+            Transaction,
             TransactionKernel,
             TransactionOutput,
+            WalletOutput,
         },
+        transaction_key_manager::{MemoryDbKeyManager, TariKeyId},
         CoinbaseBuildError,
+        CoinbaseBuilder,
     },
 };
 

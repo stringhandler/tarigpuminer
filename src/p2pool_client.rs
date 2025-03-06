@@ -7,6 +7,7 @@ use minotari_app_grpc::tari_rpc::{
     sha_p2_pool_client::ShaP2PoolClient,
     Block,
     GetNewBlockRequest,
+    GetTipInfoRequest,
     NewBlockTemplate,
     NewBlockTemplateResponse,
     PowAlgo,
@@ -15,7 +16,7 @@ use minotari_app_grpc::tari_rpc::{
 use tari_common_types::tari_address::TariAddress;
 use tonic::{async_trait, transport::Channel};
 
-use crate::node_client::{NewBlockResult, NodeClient};
+use crate::node_client::{HeightData, NewBlockResult, NodeClient};
 
 const LOG_TARGET: &str = "tari::gpuminer::p2pool";
 
@@ -61,6 +62,18 @@ impl NodeClient for P2poolClientWrapper {
     async fn get_version(&mut self) -> Result<u64, Error> {
         info!(target: LOG_TARGET, "P2poolClientWrapper: getting version");
         Ok(0)
+    }
+
+    async fn get_height(&mut self) -> Result<HeightData, Error> {
+        info!(target: LOG_TARGET, "P2poolClientWrapper: getting height");
+        let response = self.client.get_tip_info(GetTipInfoRequest {}).await?.into_inner();
+
+        Ok(HeightData {
+            height: response.node_height,
+            tip_hash: response.node_tip_hash,
+            p2pool_height: response.p2pool_sha_height,
+            p2pool_tip_hash: response.p2pool_sha_tip_hash,
+        })
     }
 
     async fn get_block_template(&mut self) -> Result<NewBlockTemplateResponse, Error> {

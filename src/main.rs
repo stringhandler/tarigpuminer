@@ -10,6 +10,7 @@ use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
+        OnceLock,
     },
     thread,
     time::{Duration, Instant},
@@ -25,11 +26,9 @@ use cust::{
 use gpu_status_file::GpuStatus;
 use http::stats_collector::{self, HashrateSample};
 use log::{debug, error, info, warn};
-use minotari_app_grpc::tari_rpc::{
-    Block,
-    BlockHeader as grpc_header,
-    NewBlockTemplate,
-    TransactionOutput as GrpcTransactionOutput,
+use minotari_app_grpc::{
+    conversions::block,
+    tari_rpc::{Block, BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput},
 };
 use multi_engine_wrapper::{EngineType, MultiEngineWrapper};
 use num_format::{Locale, ToFormattedString};
@@ -39,9 +38,9 @@ use tari_core::{
     blocks::BlockHeader,
     consensus::ConsensusManager,
     transactions::{
-        key_manager::create_memory_db_key_manager,
         tari_amount::MicroMinotari,
         transaction_components::{CoinBaseExtra, RangeProofType},
+        transaction_key_manager::create_memory_db_key_manager,
     },
 };
 use tari_shutdown::{Shutdown, ShutdownSignal};
@@ -85,6 +84,29 @@ mod tari_coinbase;
 mod metal_engine;
 
 const LOG_TARGET: &str = "tari::gpuminer";
+static block_template_cache: OnceLock<RwLock<Option<BlockTemplateData>>> = OnceLock::new();
+
+fn get_block_template_cache() -> &'static RwLock<Option<BlockTemplateData>> {
+    block_template_cache.get_or_init(|| RwLock::new(None))
+}
+
+async fn clear_block_template_cache() {
+    let mut cache = get_block_template_cache().write().await;
+    *cache = None;
+}
+
+async fn replace_block_template_cache(template: BlockTemplateData) {
+    let mut cache = get_block_template_cache().write().await;
+    *cache = Some(template);
+}
+
+#[derive(Debug, Clone)]
+struct BlockTemplateData {
+    target_difficulty: u64,
+    block: minotari_app_grpc::tari_rpc::Block,
+    header: BlockHeader,
+    mining_hash: FixedHash,
+}
 
 #[tokio::main]
 async fn main() {
@@ -110,6 +132,7 @@ async fn main() {
         file.write_all(format!("Panic at {}: {}", location, message).as_bytes())
             .unwrap();
     }));
+
     match main_inner().await {
         Ok(()) => {
             info!(target: LOG_TARGET, "Gpu miner startup process completed successfully");
@@ -469,7 +492,7 @@ async fn main_inner() -> Result<(), anyhow::Error> {
         let s = shutdown.to_signal();
         threads.push(thread::spawn(move || {
             let runtime = Runtime::new().unwrap();
-            runtime.block_on(async { run_template_height_watcher(current_template_height, c, s).await })
+            runtime.block_on(async { run_template_height_watcher(c, s).await })
         }));
     }
 
@@ -519,68 +542,107 @@ async fn main_inner() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-async fn run_template_height_watcher(
-    curr_height: Arc<AtomicU64>,
-    config: ConfigFile,
-    shutdown: ShutdownSignal,
-) -> Result<u64, anyhow::Error> {
+async fn run_template_height_watcher(config: ConfigFile, shutdown: ShutdownSignal) -> Result<u64, anyhow::Error> {
     let client_type = if config.p2pool_enabled {
         ClientType::P2Pool(TariAddress::from_str(config.tari_address.as_str()).unwrap())
     } else {
         ClientType::BaseNode
     };
 
-    let mut node_client = node_client::create_client(client_type, &config.tari_node_url, config.coinbase_extra)
-        .await
-        .unwrap();
+    let mut node_client =
+        node_client::create_client(client_type, &config.tari_node_url, config.coinbase_extra.clone()).await?;
 
-    let template = tokio::time::timeout(
-        std::time::Duration::from_secs(config.template_timeout_secs),
-        node_client.get_block_template(),
-    )
-    .await
-    .unwrap()
-    .unwrap();
+    let mut curr_node_height = 0;
+    let mut curr_p2pool_height = 0;
+    let mut curr_hash = vec![];
+    let mut curr_p2pool_hash = vec![];
+    let mut last_template_time = Instant::now();
+    // let mut curr_block_template = None;
 
-    curr_height.store(
-        template
-            .new_block_template
-            .as_ref()
-            .and_then(|b| b.header.as_ref())
-            .map(|h| h.height)
-            .unwrap_or(0),
-        Ordering::SeqCst,
-    );
+    let timeout_dur = std::time::Duration::from_secs(config.template_timeout_secs);
     loop {
+        let mut must_refresh = false;
         if shutdown.is_triggered() {
             break;
         }
-        let template = match tokio::time::timeout(
-            std::time::Duration::from_secs(config.template_timeout_secs),
-            node_client.get_block_template(),
-        )
-        .await
-        {
-            Ok(Ok(template)) => template,
+
+        // let current_data = {
+        //     let d = get_block_template_cache().read().await;
+        //     d.map(|d| (d.header.height, d.header.prev_hash, d.p2pool_height, d.p2pool_prev_hash))
+        // };
+
+        let height_data = match tokio::time::timeout(timeout_dur, node_client.get_height()).await {
+            Ok(Ok(height_data)) => height_data,
             Ok(Err(e)) => {
-                error!(target: LOG_TARGET, "Error getting block template: {:?}", e);
+                error!(target: LOG_TARGET, "Error getting height: {:?}", e);
                 continue;
             },
             Err(e) => {
-                error!(target: LOG_TARGET, "Timeout getting block template: {:?}", e);
+                error!(target: LOG_TARGET, "Timeout getting height: {:?}", e);
                 continue;
             },
         };
-
-        let height = template
-            .new_block_template
-            .as_ref()
-            .and_then(|b| b.header.as_ref())
-            .map(|h| h.height)
-            .unwrap_or(0);
-        if height > curr_height.load(Ordering::SeqCst) {
-            curr_height.store(height, Ordering::SeqCst);
+        if height_data.height > curr_node_height || height_data.tip_hash != curr_hash {
+            info!(target: LOG_TARGET, "Tari chain changed. Dumping block template. New height:{}, old height:{}.", height_data.height, curr_node_height);
+            must_refresh = true;
+            // clear_block_template_cache().await;
         }
+        if height_data.p2pool_height > curr_p2pool_height || curr_p2pool_hash != height_data.p2pool_tip_hash {
+            info!(target: LOG_TARGET, "P2Pool chain changed. Dumping block template. New height:{}, old height:{}.", height_data.p2pool_height, curr_p2pool_height);
+            must_refresh = true;
+            // clear_block_template_cache().await;
+        }
+
+        if last_template_time.elapsed() > Duration::from_secs(config.template_refresh_secs) {
+            info!(target: LOG_TARGET, "Template refresh time elapsed. Dumping block template.");
+            must_refresh = true;
+        }
+
+        curr_node_height = height_data.height;
+        curr_hash = height_data.tip_hash;
+        curr_p2pool_height = height_data.p2pool_height;
+        curr_p2pool_hash = height_data.p2pool_tip_hash;
+
+        println!(
+            "Current height: {}, P2Pool height: {} time: {}s",
+            curr_node_height,
+            curr_p2pool_height,
+            last_template_time.elapsed().as_secs()
+        );
+
+        if must_refresh {
+            println!("Refreshing block template");
+            let template = match tokio::time::timeout(
+                std::time::Duration::from_secs(config.template_timeout_secs),
+                get_template_from_client(&mut node_client, config.clone()),
+            )
+            .await
+            {
+                Ok(Ok(template)) => template,
+                Ok(Err(e)) => {
+                    error!(target: LOG_TARGET, "Error getting block template: {:?}", e);
+                    continue;
+                },
+                Err(e) => {
+                    error!(target: LOG_TARGET, "Timeout getting block template: {:?}", e);
+                    continue;
+                },
+            };
+            last_template_time = Instant::now();
+            // clear_block_template_cache().await;
+            replace_block_template_cache(template).await;
+            println!("Block template refreshed");
+        }
+
+        // let height = template
+        //     .new_block_template
+        //     .as_ref()
+        //     .and_then(|b| b.header.as_ref())
+        //     .map(|h| h.height)
+        //     .unwrap_or(0);
+        // if height > curr_height.load(Ordering::SeqCst) {
+        //     curr_height.store(height, Ordering::SeqCst);
+        // }
         sleep(Duration::from_secs(config.height_check_secs)).await;
     }
     Ok(0)
@@ -638,8 +700,6 @@ fn run_thread(
     let mut data = vec![0u64; 6];
     // let mut data_buf = data.as_slice().as_dbuf()?;
 
-    let mut previous_template = None;
-
     loop {
         rounds += 1;
 
@@ -652,37 +712,21 @@ fn run_thread(
         let block: Block;
         let mut header: BlockHeader;
         let mining_hash: FixedHash;
-        match runtime.block_on(async move { get_template(clone_config, clone_node_client, rounds, benchmark).await }) {
-            Ok((res_target_difficulty, res_block, res_header, res_mining_hash)) => {
-                template_fetch_failures = 0;
-                info!(target: LOG_TARGET, "Getting next block...");
-                println!("Getting next block...{}", res_header.height);
-                target_difficulty = res_target_difficulty;
-                block = res_block;
-                header = res_header;
-                mining_hash = res_mining_hash;
-                previous_template = Some((target_difficulty, block.clone(), header.clone(), mining_hash.clone()));
+        match runtime.block_on(async move { get_template(benchmark).await }) {
+            Some(res) => {
+                // template_fetch_failures = 0;
+                // info!(target: LOG_TARGET, "Getting next block...");
+                // println!("Getting next block...{}", res_header.height);
+                target_difficulty = res.target_difficulty;
+                block = res.block;
+                header = res.header;
+                mining_hash = res.mining_hash;
+                // previous_template = Some((target_difficulty, block.clone(), header.clone(), mining_hash.clone()));
             },
-            Err(error) => {
-                template_fetch_failures += 1;
-                if template_fetch_failures > config.max_template_failures {
-                    eprintln!("Too many template fetch failures, exiting");
-                    error!(target: LOG_TARGET, "Too many template fetch failures, exiting");
-                    return Err(error);
-                }
-                println!("Error during getting next block: {error:?}");
-                error!(target: LOG_TARGET, "Error during getting next block: {:?}", error);
-                if previous_template.is_none() {
-                    thread::sleep(std::time::Duration::from_secs(1));
-                    continue;
-                }
-                let (res_target_difficulty, res_block, res_header, res_mining_hash) =
-                    previous_template.as_ref().cloned().unwrap();
-                target_difficulty = res_target_difficulty;
-                block = res_block;
-                header = res_header;
-                header.timestamp = EpochTime::now();
-                mining_hash = res_mining_hash;
+            None => {
+                info!(target: LOG_TARGET, "Waiting for template to be populated");
+                thread::sleep(std::time::Duration::from_secs(1));
+                continue;
             },
         }
 
@@ -815,43 +859,38 @@ fn run_thread(
     }
 }
 
-async fn get_template(
-    config: ConfigFile,
-    node_client: Arc<RwLock<node_client::Client>>,
-    round: u32,
-    benchmark: bool,
-) -> Result<(u64, minotari_app_grpc::tari_rpc::Block, BlockHeader, FixedHash), anyhow::Error> {
-    info!(target: LOG_TARGET, "Getting block template round {:?}", round);
+async fn get_template(benchmark: bool) -> Option<BlockTemplateData> {
     if benchmark {
-        return Ok((
-            u64::MAX,
-            minotari_app_grpc::tari_rpc::Block::default(),
-            BlockHeader::new(0),
-            FixedHash::default(),
-        ));
+        return Some(BlockTemplateData {
+            target_difficulty: u64::MAX,
+            block: minotari_app_grpc::tari_rpc::Block::default(),
+            header: BlockHeader::new(0),
+            mining_hash: FixedHash::default(),
+        });
     }
-    let address = if round % 99 == 0 {
-        TariAddress::from_str(
-            "f2CWXg4GRNXweuDknxLATNjeX8GyJyQp9GbVG8f81q63hC7eLJ4ZR8cDd9HBcVTjzoHYUtzWZFM3yrZ68btM2wiY7sj",
-        )?
-    } else {
-        TariAddress::from_str(config.tari_address.as_str())?
-    };
+    get_block_template_cache().read().await.clone()
+}
+
+async fn get_template_from_client(
+    node_client: &mut node_client::Client,
+    config: ConfigFile,
+) -> Result<BlockTemplateData, anyhow::Error> {
     let key_manager = create_memory_db_key_manager()?;
     let consensus_manager = ConsensusManager::builder(Network::NextNet)
         .build()
         .expect("Could not build consensus manager");
 
-    let mut lock = node_client.write().await;
-
+    // let mut lock = node_client.write().await;
+    let address = TariAddress::from_str(config.tari_address.as_str())?;
     // p2pool enabled
     if config.p2pool_enabled {
         debug!(target: LOG_TARGET, "p2pool enabled");
         let block_result = tokio::time::timeout(
             std::time::Duration::from_secs(config.template_timeout_secs),
-            lock.get_new_block(NewBlockTemplate::default()),
+            node_client.get_new_block(NewBlockTemplate::default()),
         )
         .await??;
+        // dbg!(&block_result);
         let block = block_result.result.block.unwrap();
         let mut header: BlockHeader = block
             .clone()
@@ -859,21 +898,42 @@ async fn get_template(
             .unwrap()
             .try_into()
             .map_err(|s: String| anyhow!(s))?;
-        let mining_hash = header.mining_hash().clone();
         header.timestamp = EpochTime::now();
+        let mining_hash = header.mining_hash().clone();
         info!(target: LOG_TARGET,
             "block result target difficulty: {}, block timestamp: {}, mining_hash: {}",
             block_result.target_difficulty.to_string(),
             block.clone().header.unwrap().timestamp.to_string(),
             header.mining_hash().clone().to_string()
         );
-        return Ok((block_result.target_difficulty, block, header, mining_hash));
+        println!(
+            "New template, difficulty: {}, minerdata {}",
+            block_result.target_difficulty,
+            block_result
+                .result
+                .miner_data
+                .as_ref()
+                .map(|m| m.target_difficulty)
+                .unwrap_or_default()
+        );
+        // return Ok(());
+        return Ok(BlockTemplateData {
+            target_difficulty: block_result
+                .result
+                .miner_data
+                .as_ref()
+                .map(|m| m.target_difficulty)
+                .unwrap_or(block_result.target_difficulty),
+            block,
+            header,
+            mining_hash,
+        });
     }
 
     println!("Getting block template");
     let template = tokio::time::timeout(
         std::time::Duration::from_secs(config.template_timeout_secs),
-        lock.get_block_template(),
+        node_client.get_block_template(),
     )
     .await??;
     let mut block_template = template.new_block_template.clone().unwrap();
@@ -900,7 +960,7 @@ async fn get_template(
     body.outputs.push(grpc_output);
     body.kernels.push(coinbase_kernel.into());
     let target_difficulty = miner_data.target_difficulty;
-    let block_result = lock.get_new_block(block_template).await?.result;
+    let block_result = node_client.get_new_block(block_template).await?.result;
     let block = block_result.block.unwrap();
     let mut header: BlockHeader = block
         .clone()
@@ -911,7 +971,12 @@ async fn get_template(
     // header.timestamp = EpochTime::now();
 
     let mining_hash = header.mining_hash().clone();
-    Ok((target_difficulty, block, header, mining_hash))
+    Ok(BlockTemplateData {
+        target_difficulty,
+        block,
+        header,
+        mining_hash,
+    })
 }
 fn copy_u8_to_u64(input: Vec<u8>) -> Vec<u64> {
     let mut output: Vec<u64> = Vec::with_capacity(input.len() / 8);
