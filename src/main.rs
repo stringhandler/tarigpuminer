@@ -483,8 +483,6 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
     let mut threads = vec![];
 
-    let current_template_height = Arc::new(AtomicU64::new(0));
-
     info!(target: LOG_TARGET, "Starting template height watcher");
 
     if num_devices > 0 && !benchmark {
