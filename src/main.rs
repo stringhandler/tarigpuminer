@@ -1,6 +1,4 @@
 use std::{
-    any,
-    cmp,
     convert::TryInto,
     env::current_dir,
     fs::{self, File},
@@ -18,22 +16,23 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{anyhow, Context as AnyContext};
+use anyhow::anyhow;
 use clap::Parser;
 #[cfg(feature = "nvidia")]
 use cust::{
     memory::{AsyncCopyDestination, DeviceCopy},
     prelude::*,
 };
+use gpu_status_file::GpuStatus;
 use http::stats_collector::{self, HashrateSample};
 use log::{debug, error, info, warn};
 use minotari_app_grpc::{
     conversions::block,
     tari_rpc::{Block, BlockHeader as grpc_header, NewBlockTemplate, TransactionOutput as GrpcTransactionOutput},
 };
+use multi_engine_wrapper::{EngineType, MultiEngineWrapper};
 use num_format::{Locale, ToFormattedString};
-use sha3::Digest;
-use tari_common::{configuration::Network, initialize_logging};
+use tari_common::configuration::Network;
 use tari_common_types::{tari_address::TariAddress, types::FixedHash};
 use tari_core::{
     blocks::BlockHeader,
@@ -52,24 +51,20 @@ use tokio::{
     time::sleep,
 };
 
-#[cfg(feature = "nvidia")]
-use crate::cuda_engine::CudaEngine;
-#[cfg(feature = "opencl3")]
-use crate::opencl_engine::OpenClEngine;
 use crate::{
     config_file::ConfigFile,
     engine_impl::EngineImpl,
-    function_impl::FunctionImpl,
     gpu_engine::GpuEngine,
     gpu_status_file::GpuStatusFile,
     http::{config::Config, server::HttpServer},
-    node_client::{ClientType, NodeClient},
-    stats_store::StatsStore,
+    node_client::ClientType,
     tari_coinbase::generate_coinbase,
 };
 
 mod config_file;
 mod context_impl;
+mod multi_engine_wrapper;
+
 #[cfg(feature = "nvidia")]
 mod cuda_engine;
 mod engine_impl;
@@ -78,11 +73,15 @@ mod gpu_engine;
 mod gpu_status_file;
 mod http;
 mod node_client;
-#[cfg(feature = "opencl3")]
+
+#[cfg(feature = "opencl")]
 mod opencl_engine;
 mod p2pool_client;
 mod stats_store;
 mod tari_coinbase;
+
+#[cfg(feature = "metal")]
+mod metal_engine;
 
 const LOG_TARGET: &str = "tari::gpuminer";
 static block_template_cache: OnceLock<RwLock<Option<BlockTemplateData>>> = OnceLock::new();
@@ -203,14 +202,6 @@ struct Cli {
     #[arg(short = 'd', long, alias = "detect")]
     detect: Option<bool>,
 
-    /// (Optional) use only specific devices
-    #[arg(long, alias = "use-devices", num_args=0.., value_delimiter=',')]
-    use_devices: Option<Vec<u32>>,
-
-    /// (Optional) exclude specific devices from use
-    #[arg(long, alias = "exclude-devices", num_args=0.., value_delimiter=',')]
-    exclude_devices: Option<Vec<u32>>,
-
     /// Gpu status file path
     #[arg(short, long, value_name = "gpu-status")]
     gpu_status_file: Option<PathBuf>,
@@ -220,6 +211,9 @@ struct Cli {
 
     #[arg(long)]
     max_template_failures: Option<usize>,
+
+    #[arg(long)]
+    engine: Option<String>,
 }
 
 async fn main_inner() -> Result<(), anyhow::Error> {
@@ -238,351 +232,312 @@ async fn main_inner() -> Result<(), anyhow::Error> {
 
     let submit = true;
 
-    #[cfg(not(any(feature = "nvidia", feature = "opencl3")))]
+    #[cfg(not(any(feature = "nvidia", feature = "opencl", feature = "metal")))]
     {
         eprintln!("No GPU engine available");
         process::exit(1);
     }
 
-    #[cfg(feature = "nvidia")]
-    let mut gpu_engine = GpuEngine::new(CudaEngine::new());
+    let selected_cli_engine: EngineType = match cli.engine {
+        Some(ref engine) => EngineType::from_string(engine),
+        None => {
+            eprintln!("No engine specified");
+            process::exit(105);
+        },
+    };
 
-    #[cfg(feature = "opencl3")]
-    let mut gpu_engine = GpuEngine::new(OpenClEngine::new());
+    let mut multi_engine_wrapper = MultiEngineWrapper::new(selected_cli_engine.clone());
+    multi_engine_wrapper.init().expect("Could not init engine");
 
-    #[cfg(any(feature = "nvidia", feature = "opencl3"))]
-    {
-        gpu_engine.init().unwrap();
+    // http server
+    let mut shutdown = Shutdown::new();
 
-        // http server
-        let mut shutdown = Shutdown::new();
-
-        let num_devices = gpu_engine.num_devices()?;
-
-        // just create the context to test if it can run
-        if let Some(_detect) = cli.detect {
-            let gpu = gpu_engine.clone();
-
-            let gpu_devices = match gpu.detect_devices() {
-                Ok(gpu_stats) => gpu_stats,
-                Err(error) => {
-                    warn!(target: LOG_TARGET, "No gpu device detected");
-                    return Err(anyhow::anyhow!("Gpu detect error: {:?}", error));
-                },
-            };
-
-            let any_gpu_available = gpu_devices.iter().any(|g| g.is_available);
-            let status_file = GpuStatusFile::new(gpu_devices);
-            let default_path = {
-                let mut path = current_dir().expect("no current directory");
-                path.push("gpu_status.json");
-                path
-            };
-            let path = cli.gpu_status_file.unwrap_or_else(|| default_path.clone());
-
-            let _ = match GpuStatusFile::load(&path) {
-                Ok(_) => {
-                    if let Err(err) = status_file.save(&path) {
-                        warn!(target: LOG_TARGET,"Error saving gpu status: {}", err);
-                    }
-                    status_file
-                },
-                Err(err) => {
-                    if let Err(err) = fs::create_dir_all(path.parent().expect("no parent")) {
-                        warn!(target: LOG_TARGET, "Error creating directory: {}", err);
-                    }
-                    if let Err(err) = status_file.save(&path) {
-                        warn!(target: LOG_TARGET,"Error saving gpu status: {}", err);
-                    }
-                    status_file
-                },
-            };
-
-            if any_gpu_available {
-                return Ok(());
-            }
-            return Err(anyhow::anyhow!("No available gpu device detected"));
-        }
-
-        let mut config = match ConfigFile::load(&cli.config.as_ref().cloned().unwrap_or_else(|| {
-            let mut path = current_dir().expect("no current directory");
-            path.push("config.json");
+    // just create the context to test if it can run
+    if let Some(_detect) = cli.detect {
+        let default_path = {
+            let path = current_dir().expect("no current directory");
             path
-        })) {
-            Ok(config) => {
-                info!(target: LOG_TARGET, "Config file loaded successfully");
-                config
-            },
-            Err(err) => {
-                eprintln!("Error loading config file: {}. Creating new one", err);
-                let default = ConfigFile::default();
-                let path = cli.config.unwrap_or_else(|| {
-                    let mut path = current_dir().expect("no current directory");
-                    path.push("config.json");
-                    path
-                });
-                dbg!(&path);
-                fs::create_dir_all(path.parent().expect("no parent"))?;
-                default.save(&path).expect("Could not save default config");
-                default
-            },
         };
 
-        if let Some(ref addr) = cli.tari_address {
-            config.tari_address = addr.clone();
-        }
-        if let Some(ref url) = cli.tari_node_url {
-            config.tari_node_url = url.clone();
-        }
-        if cli.p2pool_enabled {
-            config.p2pool_enabled = true;
-        }
-        if let Some(enabled) = cli.http_server_enabled {
-            config.http_server_enabled = enabled;
-        }
-        if let Some(port) = cli.http_server_port {
-            config.http_server_port = port;
-        }
-        if let Some(block_size) = cli.block_size {
-            config.block_size = block_size;
-        }
-        if let Some(grid_size) = cli.grid_size {
-            let sizes: Vec<u32> = grid_size.split(',').map(|s| s.parse::<u32>().unwrap()).collect();
-            if sizes.len() == 1 {
-                config.single_grid_size = sizes[0];
-            } else {
-                config.per_device_grid_sizes = sizes;
-            }
-        }
-        if let Some(coinbase_extra) = cli.coinbase_extra {
-            config.coinbase_extra = coinbase_extra;
+        let mut engines_that_detected_any_device: Vec<EngineType> =
+            multi_engine_wrapper.create_status_files_for_each_engine(cli.gpu_status_file.unwrap_or(default_path));
+
+        if engines_that_detected_any_device.is_empty() {
+            eprintln!("No GPU devices detected");
+            process::exit(1);
         }
 
-        if let Some(template_timeout) = cli.template_timeout_secs {
-            config.template_timeout_secs = template_timeout;
-        }
-        // create a list of devices (by index) to use
-        let devices_to_use: Vec<u32> = (0..num_devices)
-            .filter(|x| {
-                if let Some(use_devices) = &cli.use_devices {
-                    use_devices.contains(x)
-                } else {
-                    true
-                }
-            })
-            .filter(|x| {
-                if let Some(excluded_devices) = &cli.exclude_devices {
-                    !excluded_devices.contains(x)
-                } else {
-                    true
-                }
-            })
-            .collect();
+        return Ok(());
+    }
 
-        info!(target: LOG_TARGET, "Device indexes to use: {:?} from the total number of devices: {:?}", devices_to_use, num_devices);
-
-        println!(
-            "Device indexes to use: {:?} from the total number of devices: {:?}",
-            devices_to_use, num_devices
-        );
-
-        if let Some(max_template_failures) = cli.max_template_failures {
-            config.max_template_failures = max_template_failures as u64;
-        }
-        // create a list of devices (by index) to use
-        let devices_to_use: Vec<u32> = (0..num_devices)
-            .filter(|x| {
-                if let Some(use_devices) = &cli.use_devices {
-                    use_devices.contains(x)
-                } else {
-                    true
-                }
-            })
-            .filter(|x| {
-                if let Some(excluded_devices) = &cli.exclude_devices {
-                    !excluded_devices.contains(x)
-                } else {
-                    true
-                }
-            })
-            .collect();
-
-        info!(target: LOG_TARGET, "Device indexes to use: {:?} from the total number of devices: {:?}", devices_to_use, num_devices);
-
-        println!(
-            "Device indexes to use: {:?} from the total number of devices: {:?}",
-            devices_to_use, num_devices
-        );
-
-        if cli.find_optimal {
-            let mut best_hashrate = 0;
-            let mut best_grid_size = 1;
-            let mut current_grid_size = 32;
-            let mut is_doubling_stage = true;
-            let mut last_grid_size_increase = 0;
-            let mut prev_hashrate = 0;
-
-            while true {
-                dbg!("here");
-                let mut config = config.clone();
-                config.single_grid_size = current_grid_size;
-                // config.block_size = ;
-                let mut threads = vec![];
-                let (tx, rx) = tokio::sync::broadcast::channel(100);
-                for i in 0..num_devices {
-                    if !devices_to_use.contains(&i) {
-                        continue;
-                    }
-                    let c = config.clone();
-                    let gpu = gpu_engine.clone();
-                    let x = tx.clone();
-                    threads.push(thread::spawn(move || {
-                        run_thread(gpu, num_devices as u64, i as u32, c, true, x)
-                    }));
-                }
-                let thread_len = threads.len();
-                let mut thread_hashrate = Vec::with_capacity(thread_len);
-                for t in threads {
-                    match t.join() {
-                        Ok(res) => match res {
-                            Ok(hashrate) => {
-                                info!(target: LOG_TARGET, "Thread join succeeded: {}", hashrate.to_formatted_string(&Locale::en));
-                                thread_hashrate.push(hashrate);
-                            },
-                            Err(err) => {
-                                eprintln!("Thread join succeeded but result failed: {:?}", err);
-                                error!(target: LOG_TARGET, "Thread join succeeded but result failed: {:?}", err);
-                            },
-                        },
-                        Err(err) => {
-                            eprintln!("Thread join failed: {:?}", err);
-                            error!(target: LOG_TARGET, "Thread join failed: {:?}", err);
-                        },
-                    }
-                }
-                let total_hashrate: u64 = thread_hashrate.iter().sum();
-                if total_hashrate > best_hashrate {
-                    best_hashrate = total_hashrate;
-                    best_grid_size = current_grid_size;
-                    // best_grid_size = config.single_grid_size;
-                    // best_block_size = config.block_size;
-                    println!(
-                        "Best hashrate: {} grid_size: {}, current_grid: {} block_size: {} Prev Hash {}",
-                        best_hashrate, best_grid_size, current_grid_size, config.block_size, prev_hashrate
-                    );
-                }
-                // if total_hashrate < prev_hashrate {
-                //     println!("total decreased, breaking");
-                //     break;
-                // }
-                if is_doubling_stage {
-                    if total_hashrate > prev_hashrate {
-                        last_grid_size_increase = current_grid_size;
-                        current_grid_size = current_grid_size * 2;
-                    } else {
-                        is_doubling_stage = false;
-                        last_grid_size_increase = last_grid_size_increase / 2;
-                        current_grid_size = current_grid_size.saturating_sub(last_grid_size_increase);
-                    }
-                } else {
-                    // Bisecting stage
-                    if last_grid_size_increase < 2 {
-                        break;
-                    }
-                    if total_hashrate > prev_hashrate {
-                        last_grid_size_increase = last_grid_size_increase / 2;
-                        current_grid_size += last_grid_size_increase;
-                    } else {
-                        last_grid_size_increase = last_grid_size_increase / 2;
-                        current_grid_size = current_grid_size.saturating_sub(last_grid_size_increase);
-                    }
-                }
-                prev_hashrate = total_hashrate;
-            }
-            return Ok(());
-        }
-
-        let (stats_tx, stats_rx) = tokio::sync::broadcast::channel(100);
-        if config.http_server_enabled {
-            let mut stats_collector = stats_collector::StatsCollector::new(shutdown.to_signal(), stats_rx);
-            let stats_client = stats_collector.create_client();
-            info!(target: LOG_TARGET, "Stats collector started");
-            tokio::spawn(async move {
-                stats_collector.run().await;
-                info!(target: LOG_TARGET, "Stats collector shutdown");
+    let mut config = match ConfigFile::load(&cli.config.as_ref().cloned().unwrap_or_else(|| {
+        let mut path = current_dir().expect("no current directory");
+        path.push("config.json");
+        path
+    })) {
+        Ok(config) => {
+            info!(target: LOG_TARGET, "Config file loaded successfully");
+            config
+        },
+        Err(err) => {
+            eprintln!("Error loading config file: {}. Creating new one", err);
+            let default = ConfigFile::default();
+            let path = cli.config.unwrap_or_else(|| {
+                let mut path = current_dir().expect("no current directory");
+                path.push("config.json");
+                path
             });
-            let http_server_config = Config::new(config.http_server_port);
-            info!(target: LOG_TARGET, "HTTP server runs on port: {}", &http_server_config.port);
-            let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_client);
-            info!(target: LOG_TARGET, "HTTP server enabled");
-            tokio::spawn(async move {
-                if let Err(error) = http_server.start().await {
-                    println!("Failed to start HTTP server: {error:?}");
-                    error!(target: LOG_TARGET, "Failed to start HTTP server: {:?}", error);
-                } else {
-                    info!(target: LOG_TARGET, "Success to start HTTP server");
+            dbg!(&path);
+            fs::create_dir_all(path.parent().expect("no parent"))?;
+            default.save(&path).expect("Could not save default config");
+            default
+        },
+    };
+
+    let default_gpu_status_path = {
+        let path = current_dir().expect("no current directory");
+        path
+    };
+    let mut gpu_status_path = cli.gpu_status_file.clone().unwrap_or(default_gpu_status_path);
+    let gpu_status_file_name = format!("{}_gpu_status.json", selected_cli_engine.to_string());
+    gpu_status_path.push(gpu_status_file_name);
+
+    let gpu_status_file = GpuStatusFile::load(&gpu_status_path).unwrap_or_else(|_| {
+        let default = GpuStatusFile::default();
+        default
+            .save(&gpu_status_path)
+            .expect("Could not save default gpu status");
+        default
+    });
+
+    if let Some(ref addr) = cli.tari_address {
+        config.tari_address = addr.clone();
+    }
+    if let Some(ref url) = cli.tari_node_url {
+        config.tari_node_url = url.clone();
+    }
+    if cli.p2pool_enabled {
+        config.p2pool_enabled = true;
+    }
+    if let Some(enabled) = cli.http_server_enabled {
+        config.http_server_enabled = enabled;
+    }
+    if let Some(port) = cli.http_server_port {
+        config.http_server_port = port;
+    }
+    if let Some(block_size) = cli.block_size {
+        config.block_size = block_size;
+    }
+    if let Some(grid_size) = cli.grid_size {
+        let sizes: Vec<u32> = grid_size.split(',').map(|s| s.parse::<u32>().unwrap()).collect();
+        if sizes.len() == 1 {
+            config.single_grid_size = sizes[0];
+        } else {
+            config.per_device_grid_sizes = sizes;
+        }
+    }
+    if let Some(coinbase_extra) = cli.coinbase_extra {
+        config.coinbase_extra = coinbase_extra;
+    }
+
+    if let Some(template_timeout) = cli.template_timeout_secs {
+        config.template_timeout_secs = template_timeout;
+    }
+
+    if let Some(max_template_failures) = cli.max_template_failures {
+        config.max_template_failures = max_template_failures as u64;
+    }
+
+    let gpu_devices = gpu_status_file.gpu_devices.clone();
+
+    gpu_devices.iter().for_each(|(device_name, gpu_device)| {
+        println!(
+            "Device: {} is available: {} is excluded {}",
+            device_name, gpu_device.settings.is_available, gpu_device.settings.is_excluded
+        );
+    });
+
+    let num_devices = multi_engine_wrapper.num_devices()?;
+    let devices_to_use: Vec<u32> = gpu_devices
+        .into_values()
+        .filter(|d| d.settings.is_available && !d.settings.is_excluded)
+        .map(|d| d.device_index)
+        .collect();
+
+    println!(
+        "Device indexes to use: {:?} from the total number of devices: {:?}",
+        devices_to_use.len(),
+        num_devices
+    );
+
+    if cli.find_optimal {
+        let mut best_hashrate = 0;
+        let mut best_grid_size = 1;
+        let mut current_grid_size = 32;
+        let mut is_doubling_stage = true;
+        let mut last_grid_size_increase = 0;
+        let mut prev_hashrate = 0;
+
+        while true {
+            dbg!("here");
+            let mut config = config.clone();
+            config.single_grid_size = current_grid_size;
+            // config.block_size = ;
+            let mut threads = vec![];
+            let (tx, rx) = tokio::sync::broadcast::channel(100);
+            for i in 0..num_devices {
+                if !devices_to_use.contains(&i) {
+                    continue;
                 }
-            });
-        }
-
-        let mut threads = vec![];
-
-        if num_devices > 0 && !benchmark {
-            let c = config.clone();
-            let s = shutdown.to_signal();
-            threads.push(thread::spawn(move || {
-                let runtime = Runtime::new().unwrap();
-                runtime.block_on(async { run_template_height_watcher(c, s).await })
-            }));
-        }
-
-        for i in 0..num_devices {
-            println!("Device index: {}", i);
-            if devices_to_use.contains(&i) {
-                println!("Starting thread for device index: {}", i);
                 let c = config.clone();
-                let gpu = gpu_engine.clone();
-                let curr_stats_tx = stats_tx.clone();
+                let gpu = multi_engine_wrapper.clone();
+                let x = tx.clone();
                 threads.push(thread::spawn(move || {
-                    run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_tx)
+                    run_thread(gpu, num_devices as u64, i as u32, c, true, x)
                 }));
             }
-        }
-
-        // for t in threads {
-        //     t.join().unwrap()?;
-        // }
-        // let mut res = Ok(());
-        let thread_len = threads.len();
-        let mut thread_hashrate = Vec::with_capacity(thread_len);
-        for t in threads {
-            match t.join() {
-                Ok(res) => match res {
-                    Ok(hashrate) => {
-                        info!(target: LOG_TARGET, "Thread join succeeded: {}", hashrate.to_formatted_string(&Locale::en));
-                        thread_hashrate.push(hashrate);
+            let thread_len = threads.len();
+            let mut thread_hashrate = Vec::with_capacity(thread_len);
+            for t in threads {
+                match t.join() {
+                    Ok(res) => match res {
+                        Ok(hashrate) => {
+                            info!(target: LOG_TARGET, "Thread join succeeded: {}", hashrate.to_formatted_string(&Locale::en));
+                            thread_hashrate.push(hashrate);
+                        },
+                        Err(err) => {
+                            eprintln!("Thread join succeeded but result failed: {:?}", err);
+                            error!(target: LOG_TARGET, "Thread join succeeded but result failed: {:?}", err);
+                        },
                     },
                     Err(err) => {
-                        error!(target: LOG_TARGET, "Thread join succeeded but result failed: {:?}", err);
+                        eprintln!("Thread join failed: {:?}", err);
+                        error!(target: LOG_TARGET, "Thread join failed: {:?}", err);
                     },
+                }
+            }
+            let total_hashrate: u64 = thread_hashrate.iter().sum();
+            if total_hashrate > best_hashrate {
+                best_hashrate = total_hashrate;
+                best_grid_size = current_grid_size;
+                // best_grid_size = config.single_grid_size;
+                // best_block_size = config.block_size;
+                println!(
+                    "Best hashrate: {} grid_size: {}, current_grid: {} block_size: {} Prev Hash {}",
+                    best_hashrate, best_grid_size, current_grid_size, config.block_size, prev_hashrate
+                );
+            }
+            // if total_hashrate < prev_hashrate {
+            //     println!("total decreased, breaking");
+            //     break;
+            // }
+            if is_doubling_stage {
+                if total_hashrate > prev_hashrate {
+                    last_grid_size_increase = current_grid_size;
+                    current_grid_size = current_grid_size * 2;
+                } else {
+                    is_doubling_stage = false;
+                    last_grid_size_increase = last_grid_size_increase / 2;
+                    current_grid_size = current_grid_size.saturating_sub(last_grid_size_increase);
+                }
+            } else {
+                // Bisecting stage
+                if last_grid_size_increase < 2 {
+                    break;
+                }
+                if total_hashrate > prev_hashrate {
+                    last_grid_size_increase = last_grid_size_increase / 2;
+                    current_grid_size += last_grid_size_increase;
+                } else {
+                    last_grid_size_increase = last_grid_size_increase / 2;
+                    current_grid_size = current_grid_size.saturating_sub(last_grid_size_increase);
+                }
+            }
+            prev_hashrate = total_hashrate;
+        }
+        return Ok(());
+    }
+
+    let (stats_tx, stats_rx) = tokio::sync::broadcast::channel(100);
+    if config.http_server_enabled {
+        let mut stats_collector = stats_collector::StatsCollector::new(shutdown.to_signal(), stats_rx);
+        let stats_client = stats_collector.create_client();
+        info!(target: LOG_TARGET, "Stats collector started");
+        tokio::spawn(async move {
+            stats_collector.run().await;
+            info!(target: LOG_TARGET, "Stats collector shutdown");
+        });
+        let http_server_config = Config::new(config.http_server_port);
+        info!(target: LOG_TARGET, "HTTP server runs on port: {}", &http_server_config.port);
+        let http_server = HttpServer::new(shutdown.to_signal(), http_server_config, stats_client);
+        info!(target: LOG_TARGET, "HTTP server enabled");
+        tokio::spawn(async move {
+            if let Err(error) = http_server.start().await {
+                println!("Failed to start HTTP server: {error:?}");
+                error!(target: LOG_TARGET, "Failed to start HTTP server: {:?}", error);
+            } else {
+                info!(target: LOG_TARGET, "Success to start HTTP server");
+            }
+        });
+    }
+
+    let mut threads = vec![];
+
+    info!(target: LOG_TARGET, "Starting template height watcher");
+
+    if num_devices > 0 && !benchmark {
+        let c = config.clone();
+        let s = shutdown.to_signal();
+        threads.push(thread::spawn(move || {
+            let runtime = Runtime::new().unwrap();
+            runtime.block_on(async { run_template_height_watcher(c, s).await })
+        }));
+    }
+
+    info!(target: LOG_TARGET, "Starting mining threads: {}", devices_to_use.len());
+
+    for i in 0..num_devices {
+        println!("Device index: {}", i);
+        if devices_to_use.contains(&i) {
+            println!("Starting thread for device index: {}", i);
+            let c = config.clone();
+            let gpu = multi_engine_wrapper.clone();
+            let curr_stats_tx = stats_tx.clone();
+            threads.push(thread::spawn(move || {
+                run_thread(gpu, num_devices as u64, i as u32, c, benchmark, curr_stats_tx)
+            }));
+        }
+    }
+
+    let thread_len = threads.len();
+    let mut thread_hashrate = Vec::with_capacity(thread_len);
+    for t in threads {
+        match t.join() {
+            Ok(res) => match res {
+                Ok(hashrate) => {
+                    info!(target: LOG_TARGET, "Thread join succeeded: {}", hashrate.to_formatted_string(&Locale::en));
+                    thread_hashrate.push(hashrate);
                 },
                 Err(err) => {
-                    error!(target: LOG_TARGET, "Thread join failed: {:?}", err);
+                    error!(target: LOG_TARGET, "Thread join succeeded but result failed: {:?}", err);
                 },
-            }
+            },
+            Err(err) => {
+                error!(target: LOG_TARGET, "Thread join failed: {:?}", err);
+            },
         }
-
-        // kill other threads
-        shutdown.trigger();
-        if thread_hashrate.len() == thread_len {
-            let total_hashrate: u64 = thread_hashrate.iter().sum();
-            warn!(target: LOG_TARGET, "Total hashrate: {}", total_hashrate.to_formatted_string(&Locale::en));
-        } else {
-            error!(target: LOG_TARGET, "Not all threads finished successfully");
-        }
-
-        Ok(())
     }
+
+    // kill other threads
+    shutdown.trigger();
+    if thread_hashrate.len() == thread_len {
+        let total_hashrate: u64 = thread_hashrate.iter().sum();
+        warn!(target: LOG_TARGET, "Total hashrate: {}", total_hashrate.to_formatted_string(&Locale::en));
+    } else {
+        error!(target: LOG_TARGET, "Not all threads finished successfully");
+    }
+
+    Ok(())
 }
 
 async fn run_template_height_watcher(config: ConfigFile, shutdown: ShutdownSignal) -> Result<u64, anyhow::Error> {
@@ -691,8 +646,8 @@ async fn run_template_height_watcher(config: ConfigFile, shutdown: ShutdownSigna
     Ok(0)
 }
 
-fn run_thread<T: EngineImpl>(
-    gpu_engine: GpuEngine<T>,
+fn run_thread(
+    gpu_engine: MultiEngineWrapper,
     num_threads: u64,
     thread_index: u32,
     config: ConfigFile,
@@ -718,7 +673,7 @@ fn run_thread<T: EngineImpl>(
 
     let context = gpu_engine.create_context(thread_index)?;
 
-    let gpu_function = gpu_engine.get_main_function(&context)?;
+    let gpu_function = gpu_engine.create_main_function(&context)?;
 
     // let (mut grid_size, block_size) = gpu_function
     //    .suggested_launch_configuration()
@@ -1021,7 +976,6 @@ async fn get_template_from_client(
         mining_hash,
     })
 }
-
 fn copy_u8_to_u64(input: Vec<u8>) -> Vec<u64> {
     let mut output: Vec<u64> = Vec::with_capacity(input.len() / 8);
 

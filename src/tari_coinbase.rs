@@ -1,6 +1,7 @@
 use rand::rngs::OsRng;
 use tari_common_types::tari_address::TariAddress;
 use tari_core::{
+    self,
     consensus::ConsensusConstants,
     one_sided::{
         diffie_hellman_stealth_domain_hasher,
@@ -23,8 +24,6 @@ use tari_core::{
         CoinbaseBuilder,
     },
 };
-use tari_crypto::keys::PublicKey as PK;
-use tari_key_manager::key_manager_service::KeyManagerInterface;
 
 pub async fn generate_coinbase(
     fee: MicroMinotari,

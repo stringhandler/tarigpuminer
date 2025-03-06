@@ -1,6 +1,11 @@
 /target
 config.json
 data
+xtrgpuminer/log/xtrgpuminer.log
+CUDA_gpu_status.json
+OpenCL_gpu_status.json
+Metal_gpu_status.json
+panic.log
 
 # Ignore OS files
 .DS_Store
