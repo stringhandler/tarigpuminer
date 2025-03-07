@@ -86,6 +86,14 @@
     "features": "metal,opencl"
   },
   {
+    "name": "opencl-macos-arm64",
+    "runs-on": "macos-14",
+    "rust": "stable",
+    "target": "aarch64-apple-darwin",
+    "cross": false,
+    "features": "opencl3"
+  },
+  {
     "name": "cuda-windows-x64",
     "runs-on": "windows-2019",
     "rust": "stable",
