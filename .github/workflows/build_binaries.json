@@ -75,7 +75,7 @@
     "rust": "stable",
     "target": "x86_64-apple-darwin",
     "cross": false,
-    "features": "metal,opencl"
+    "features": "opencl"
   },
   {
     "name": "combined-macos-arm64",
@@ -84,6 +84,14 @@
     "target": "aarch64-apple-darwin",
     "cross": false,
     "features": "metal,opencl"
+  },
+  {
+    "name": "opencl-macos-arm64",
+    "runs-on": "macos-14",
+    "rust": "stable",
+    "target": "aarch64-apple-darwin",
+    "cross": false,
+    "features": "opencl"
   },
   {
     "name": "cuda-windows-x64",
