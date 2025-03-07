@@ -91,7 +91,7 @@
     "rust": "stable",
     "target": "aarch64-apple-darwin",
     "cross": false,
-    "features": "opencl3"
+    "features": "opencl"
   },
   {
     "name": "cuda-windows-x64",
