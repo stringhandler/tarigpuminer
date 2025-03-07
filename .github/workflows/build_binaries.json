@@ -75,7 +75,7 @@
     "rust": "stable",
     "target": "x86_64-apple-darwin",
     "cross": false,
-    "features": "metal,opencl"
+    "features": "opencl"
   },
   {
     "name": "combined-macos-arm64",
