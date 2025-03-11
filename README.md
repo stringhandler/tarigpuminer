@@ -1,3 +1,8 @@
+> THIS REPO HAS BEEN RENAMED TO GLYTEX AND ARCHIVED IN FAVOUR OF https://github.com/tari-project/glytex
+
+
+
+
 # xtrgpuminer
 
 
